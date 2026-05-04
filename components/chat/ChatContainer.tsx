@@ -1,19 +1,16 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { Message, Attachment, Language, TopicId } from '@/types/chat'
+import { Message, Attachment, Language } from '@/types/chat'
 import { MessageList } from './MessageList'
 import { ChatInput } from './ChatInput'
 import { WelcomeScreen } from './WelcomeScreen'
-import { QuickPrompts } from '@/components/sidebar/QuickPrompts'
 
 interface ChatContainerProps {
   language: Language
-  activeTopic: TopicId | null
-  onTopicSelect: (topicId: TopicId) => void
 }
 
-export function ChatContainer({ language, activeTopic, onTopicSelect }: ChatContainerProps) {
+export function ChatContainer({ language }: ChatContainerProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [inputValue, setInputValue] = useState('')
   const [attachment, setAttachment] = useState<Attachment | null>(null)
@@ -48,7 +45,6 @@ export function ChatContainer({ language, activeTopic, onTopicSelect }: ChatCont
       setIsLoading(true)
 
       try {
-        // Build API history including attachment data for each message
         const history = [...messages, userMessage].map((m) => ({
           role: m.role,
           content: m.content,
@@ -58,16 +54,10 @@ export function ChatContainer({ language, activeTopic, onTopicSelect }: ChatCont
         const response = await fetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            messages: history,
-            language,
-            topicId: activeTopic,
-          }),
+          body: JSON.stringify({ messages: history, language, topicId: null }),
         })
 
-        if (!response.ok || !response.body) {
-          throw new Error('Failed to get response')
-        }
+        if (!response.ok || !response.body) throw new Error('Failed to get response')
 
         const reader = response.body.getReader()
         const decoder = new TextDecoder()
@@ -109,26 +99,21 @@ export function ChatContainer({ language, activeTopic, onTopicSelect }: ChatCont
         setIsLoading(false)
       }
     },
-    [messages, language, activeTopic, attachment, isLoading]
+    [messages, language, attachment, isLoading]
   )
 
-  const handleTopicClick = (topicId: string) => {
-    onTopicSelect(topicId as TopicId)
-  }
-
   return (
-    <div className="flex flex-col flex-1 min-h-0 bg-[#F8F9FA]">
+    <div className="flex flex-col flex-1 min-h-0">
       {messages.length === 0 ? (
-        <WelcomeScreen language={language} onTopicClick={handleTopicClick} />
+        <WelcomeScreen
+          language={language}
+          onQuestionClick={(q) => {
+            setInputValue(q)
+          }}
+        />
       ) : (
         <MessageList messages={messages} isLoading={isLoading} />
       )}
-
-      <QuickPrompts
-        language={language}
-        activeTopic={activeTopic}
-        onPromptClick={(text) => setInputValue(text)}
-      />
 
       <ChatInput
         value={inputValue}

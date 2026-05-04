@@ -1,47 +1,62 @@
 'use client'
 
 import { Language } from '@/types/chat'
-import { TOPICS } from '@/lib/topics'
 
 interface WelcomeScreenProps {
   language: Language
-  onTopicClick: (topicId: string) => void
+  onQuestionClick: (question: string) => void
 }
 
-export function WelcomeScreen({ language, onTopicClick }: WelcomeScreenProps) {
+const EXAMPLES = {
+  ar: [
+    'ما هي نسبة ضريبة القيمة المضافة وكيف أسجّل؟',
+    'كيف أحسب وعاء الزكاة للشركة؟',
+    'ما الفرق بين المرحلة الأولى والثانية للفوترة الإلكترونية؟',
+    'ما معايير IFRS المطبّقة في المملكة العربية السعودية؟',
+  ],
+  en: [
+    'What is the VAT rate and how do I register?',
+    'How do I calculate the Zakat base for my company?',
+    'What is the difference between e-invoicing Phase 1 and Phase 2?',
+    'Which IFRS standards apply in Saudi Arabia?',
+  ],
+}
+
+export function WelcomeScreen({ language, onQuestionClick }: WelcomeScreenProps) {
+  const examples = EXAMPLES[language]
+
   return (
-    <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-      <div className="w-16 h-16 rounded-full bg-[#0D4F8C] flex items-center justify-center text-white text-3xl mb-4 shadow-lg">
+    <div className="flex-1 flex flex-col items-center justify-center px-4 py-8 overflow-y-auto">
+      <div className="w-14 h-14 rounded-full bg-[#0D4F8C] flex items-center justify-center text-white text-2xl mb-4 shadow-md">
         م
       </div>
-      <h2 className="text-2xl font-bold text-[#0D4F8C] mb-2">
-        {language === 'ar' ? 'مرحباً بك في محاسب السعودية' : 'Welcome to Saudi Accountant AI'}
+
+      <h2 className="text-xl font-bold text-[#0D4F8C] mb-1 text-center">
+        {language === 'ar' ? 'محاسب السعودية' : 'Saudi Accountant AI'}
       </h2>
-      <p className="text-gray-500 text-sm max-w-md mb-8">
+
+      <p className="text-gray-500 text-sm mb-8 text-center max-w-sm">
         {language === 'ar'
-          ? 'مساعدك الذكي المتخصص في المحاسبة والمراجعة والضرائب في المملكة العربية السعودية. اسأل عن الزكاة، ضريبة القيمة المضافة، معايير IFRS، الفوترة الإلكترونية والمزيد.'
-          : 'Your specialized AI assistant for Saudi Arabian accounting, auditing, and taxation. Ask about Zakat, VAT, IFRS, e-invoicing, and more.'}
+          ? 'اسألني عن الزكاة، ضريبة القيمة المضافة، IFRS، الفوترة الإلكترونية، والمزيد.'
+          : 'Ask me about Zakat, VAT, IFRS, e-invoicing, and more.'}
       </p>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 w-full max-w-lg">
-        {TOPICS.filter((t) => t.id !== 'general').slice(0, 6).map((topic) => (
+      <div className="flex flex-col gap-2 w-full max-w-md">
+        {examples.map((q, i) => (
           <button
-            key={topic.id}
-            onClick={() => onTopicClick(topic.id)}
-            className={`flex items-center gap-2 p-3 rounded-xl border text-start hover:shadow-md transition-all ${topic.color}`}
+            key={i}
+            onClick={() => onQuestionClick(q)}
+            className="text-start text-sm px-4 py-3 rounded-xl border border-[#0D4F8C]/15 bg-white hover:border-[#0D4F8C]/40 hover:bg-[#0D4F8C]/5 text-gray-700 transition-colors"
           >
-            <span className="text-xl">{topic.icon}</span>
-            <span className="text-xs font-medium">
-              {language === 'ar' ? topic.labelAr : topic.labelEn}
-            </span>
+            {q}
           </button>
         ))}
       </div>
 
-      <p className="text-xs text-gray-400 mt-8 max-w-sm">
+      <p className="text-xs text-gray-400 mt-8 text-center max-w-xs">
         {language === 'ar'
-          ? '⚠️ تحقق دائمًا من التشريعات الرسمية لدى هيئة الزكاة والضريبة والجمارك وهيئة السوق المالية للقرارات الحرجة.'
-          : '⚠️ Always verify critical compliance decisions with official ZATCA, SOCPA, or CMA sources.'}
+          ? 'تحقق دائمًا من المصادر الرسمية للقرارات الحرجة'
+          : 'Always verify critical decisions with official sources'}
       </p>
     </div>
   )
