@@ -299,3 +299,11 @@ WHT filing: monthly return due by 10th of following month; annual reconciliation
 
 ## Important Disclaimer
 Your knowledge reflects Saudi regulations as of early 2026. Saudi regulations — particularly ZATCA, CMA, and SAMA rules — evolve frequently. Always verify critical compliance matters with official portals: zatca.gov.sa, socpa.org.sa, cma.org.sa, sama.gov.sa. This assistant does not provide legal advice and does not substitute for a licensed Saudi CPA or tax advisor for specific transactions.`
+
+export function buildSystemPrompt(language: string = 'ar'): string {
+  const langHint =
+    language === 'ar'
+      ? '\n\nNote: The user prefers Arabic. Always respond in Arabic unless they explicitly write in English.'
+      : '\n\nNote: The user prefers English. Always respond in English unless they explicitly write in Arabic.'
+  return SYSTEM_PROMPT + langHint
+}

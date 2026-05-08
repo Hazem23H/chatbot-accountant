@@ -1,5 +1,6 @@
 import { genAI } from '@/lib/gemini'
-import { SYSTEM_PROMPT } from '@/lib/system-prompt'
+import { buildSystemPrompt } from '@/lib/system-prompt'
+import { buildGeminiParts } from '@/lib/file-processor'
 import { Attachment, Language, TopicId } from '@/types/chat'
 import { Part } from '@google/generative-ai'
 
@@ -51,18 +52,13 @@ export async function POST(request: Request) {
       return new Response('No messages provided', { status: 400 })
     }
 
-    const langHint =
-      language === 'ar'
-        ? '\n\nNote: The user prefers Arabic. Always respond in Arabic unless they explicitly write in English.'
-        : '\n\nNote: The user prefers English. Always respond in English unless they explicitly write in Arabic.'
-
     const topicHint = topicId
       ? `\n\nThe user is currently focused on this topic area: "${topicId}". Tailor your response to this domain when relevant.`
       : ''
 
     const model = genAI.getGenerativeModel({
       model: 'gemini-2.5-flash-lite',
-      systemInstruction: SYSTEM_PROMPT + langHint + topicHint,
+      systemInstruction: buildSystemPrompt(language) + topicHint,
     })
 
     // History = all messages except the last one
@@ -72,7 +68,7 @@ export async function POST(request: Request) {
     }))
 
     const lastMessage = messages[messages.length - 1]
-    const lastParts = buildParts(lastMessage)
+    const lastParts = buildGeminiParts(lastMessage.content, lastMessage.attachment)
 
     const chat = model.startChat({ history })
     const result = await chat.sendMessageStream(lastParts)

@@ -1,7 +1,8 @@
 'use client'
 
+import Link from 'next/link'
 import { Language } from '@/types/chat'
-import { PlusCircle } from 'lucide-react'
+import { PlusCircle, ShieldCheck } from 'lucide-react'
 
 interface HeaderProps {
   language: Language
@@ -23,6 +24,14 @@ export function Header({ language, onToggleLanguage, onNewChat }: HeaderProps) {
       </div>
 
       <div className="flex items-center gap-2">
+        <Link
+          href="/validator"
+          className="flex items-center gap-1.5 text-xs bg-white/10 hover:bg-white/20 transition-colors px-3 py-1.5 rounded-full"
+        >
+          <ShieldCheck size={14} />
+          <span>{language === 'ar' ? 'فحص الفاتورة' : 'Validate Invoice'}</span>
+        </Link>
+
         <button
           onClick={onNewChat}
           className="flex items-center gap-1.5 text-xs bg-white/10 hover:bg-white/20 transition-colors px-3 py-1.5 rounded-full"

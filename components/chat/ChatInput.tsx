@@ -1,8 +1,9 @@
 'use client'
 
-import { useRef, KeyboardEvent, ChangeEvent } from 'react'
+import { useRef, useState, useEffect, KeyboardEvent, ChangeEvent } from 'react'
 import { Send, Paperclip, X, FileText, Image as ImageIcon, File } from 'lucide-react'
 import { Language, Attachment } from '@/types/chat'
+import { DocumentAnalysisCard } from '@/components/document-analysis-card'
 
 const ACCEPTED = '.pdf,.jpg,.jpeg,.png,.webp,.gif,.csv,.txt'
 const MAX_BYTES = 10 * 1024 * 1024 // 10 MB
@@ -46,6 +47,12 @@ export function ChatInput({
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [rawFile, setRawFile] = useState<File | null>(null)
+
+  // Sync rawFile when parent clears the attachment
+  useEffect(() => {
+    if (!attachment) setRawFile(null)
+  }, [attachment])
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -74,6 +81,8 @@ export function ChatInput({
       return
     }
 
+    setRawFile(file)
+
     const kind = fileKind(file.type)
 
     if (kind === 'text') {
@@ -100,6 +109,13 @@ export function ChatInput({
 
   return (
     <div className="border-t bg-white px-4 py-3">
+      {/* Document analysis card — shown immediately after file selection */}
+      {rawFile && (
+        <div className="mb-3">
+          <DocumentAnalysisCard file={rawFile} language={language} />
+        </div>
+      )}
+
       {/* Attachment preview strip */}
       {attachment && (
         <div className="flex items-center gap-2 mb-2 px-1">
