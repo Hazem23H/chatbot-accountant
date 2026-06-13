@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { Language } from '@/types/chat'
 import { PlusCircle, ShieldCheck } from 'lucide-react'
+import { AuthButton } from '@/components/auth/AuthButton'
 
 interface HeaderProps {
   language: Language
@@ -42,10 +43,12 @@ export function Header({ language, onToggleLanguage, onNewChat }: HeaderProps) {
 
         <button
           onClick={onToggleLanguage}
-          className="text-xs font-semibold bg-[#C49A1A] hover:bg-[#b8891a] transition-colors px-3 py-1.5 rounded-full"
+          className="text-xs font-semibold bg-white/10 hover:bg-white/20 transition-colors px-3 py-1.5 rounded-full"
         >
           {language === 'ar' ? 'EN' : 'عر'}
         </button>
+
+        <AuthButton language={language} />
       </div>
     </header>
   )
