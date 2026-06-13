@@ -2,6 +2,7 @@ import { genAI } from '@/lib/gemini'
 import { buildAnalysisParts } from '@/lib/file-processor'
 import { buildSystemPrompt } from '@/lib/system-prompt'
 import { runZatcaRules, ExtractedInvoice, ValidationFlag } from '@/lib/zatca-rules'
+import { runQrCrossChecks } from '@/lib/zatca-qr'   
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -108,13 +109,15 @@ export async function POST(request: Request) {
       return Response.json({ error: 'Extraction response was not valid JSON' }, { status: 422 })
     }
 
-    // Step 2 — Run deterministic rules engine
+    // Step 2 — Run deterministic rules engine + QR cross-checks
     const ruleFlags = runZatcaRules(extracted)
+    const qrFlags = runQrCrossChecks(extracted, extracted.qrCode)
+    const deterministicFlags = [...ruleFlags, ...qrFlags]
 
     // Step 3 — Second AI pass for semantic issues not caught by rules
-    const existingCodes = ruleFlags.map((f) => f.code).join(', ')
+    const existingCodes = deterministicFlags.map((f) => f.code).join(', ')
     const semanticPrompt = language === 'ar' ? SEMANTIC_PROMPT_AR : SEMANTIC_PROMPT_EN
-    const semanticContext = `Extracted invoice:\n${JSON.stringify(extracted, null, 2)}\n\nFlags already found by rules engine (codes: ${existingCodes || 'none'}):\n${JSON.stringify(ruleFlags, null, 2)}\n\n${semanticPrompt}`
+    const semanticContext = `Extracted invoice:\n${JSON.stringify(extracted, null, 2)}\n\nFlags already found by rules engine (codes: ${existingCodes || 'none'}):\n${JSON.stringify(deterministicFlags, null, 2)}\n\n${semanticPrompt}`
 
     let semanticFlags: ValidationFlag[] = []
     try {
@@ -130,7 +133,7 @@ export async function POST(request: Request) {
       // Semantic pass is best-effort — don't fail the whole request
     }
 
-    const allFlags = [...ruleFlags, ...semanticFlags]
+    const allFlags = [...deterministicFlags, ...semanticFlags]
     const summary = buildSummary(allFlags)
 
     return Response.json({ extracted, flags: allFlags, summary, language })

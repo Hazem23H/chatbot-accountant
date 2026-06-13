@@ -26,6 +26,8 @@ export interface AnalysisResult {
   flags: Flag[]
   recommendations: string[]
   language: string
+  // Present only when the API returns an error payload instead of a result
+  error?: string
 }
 
 interface DocumentAnalysisCardProps {
