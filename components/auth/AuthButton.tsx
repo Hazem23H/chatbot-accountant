@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { LogIn, LogOut } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { User } from '@supabase/supabase-js'
@@ -25,13 +26,6 @@ export function AuthButton({ language }: AuthButtonProps) {
     })
     return () => sub.subscription.unsubscribe()
   }, [supabase])
-
-  const signIn = async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
-    })
-  }
 
   const signOut = async () => {
     await supabase.auth.signOut()
@@ -80,12 +74,12 @@ export function AuthButton({ language }: AuthButtonProps) {
   }
 
   return (
-    <button
-      onClick={signIn}
+    <Link
+      href="/login"
       className="flex items-center gap-1.5 text-xs bg-[#C49A1A] hover:bg-[#b8891a] transition-colors px-3 py-1.5 rounded-full font-semibold"
     >
       <LogIn size={14} />
       <span>{language === 'ar' ? 'تسجيل الدخول' : 'Sign in'}</span>
-    </button>
+    </Link>
   )
 }
