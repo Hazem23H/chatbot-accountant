@@ -1,20 +1,45 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { Message, Attachment, Language } from '@/types/chat'
 import { MessageList } from './MessageList'
 import { ChatInput } from './ChatInput'
 import { WelcomeScreen } from './WelcomeScreen'
+import { createConversation, saveMessage, loadMessages } from '@/lib/chat-history'
 
 interface ChatContainerProps {
   language: Language
+  isAuthenticated: boolean
+  conversationId: string | null
+  onConversationCreated: (id: string) => void
+  onPersisted: () => void
 }
 
-export function ChatContainer({ language }: ChatContainerProps) {
+export function ChatContainer({
+  language,
+  isAuthenticated,
+  conversationId,
+  onConversationCreated,
+  onPersisted,
+}: ChatContainerProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [inputValue, setInputValue] = useState('')
   const [attachment, setAttachment] = useState<Attachment | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [activeConvId, setActiveConvId] = useState<string | null>(conversationId)
+
+  // Load an existing conversation's messages when opened from history.
+  useEffect(() => {
+    let cancelled = false
+    if (conversationId) {
+      loadMessages(conversationId).then((msgs) => {
+        if (!cancelled) setMessages(msgs)
+      })
+    }
+    return () => {
+      cancelled = true
+    }
+  }, [conversationId])
 
   const sendMessage = useCallback(
     async (content: string) => {
@@ -80,6 +105,30 @@ export function ChatContainer({ language }: ChatContainerProps) {
             m.id === assistantMessageId ? { ...m, content: accumulated, isStreaming: false } : m
           )
         )
+
+        // Persist the exchange for signed-in users.
+        if (isAuthenticated && accumulated) {
+          let cid = activeConvId
+          if (!cid) {
+            cid = await createConversation(
+              userMessage.content || attachment?.name || 'New chat',
+              language
+            )
+            if (cid) {
+              setActiveConvId(cid)
+              onConversationCreated(cid)
+            }
+          }
+          if (cid) {
+            await saveMessage(cid, {
+              role: 'user',
+              content: userMessage.content,
+              attachment: userMessage.attachment,
+            })
+            await saveMessage(cid, { role: 'assistant', content: accumulated })
+            onPersisted()
+          }
+        }
       } catch {
         setMessages((prev) =>
           prev.map((m) =>
@@ -99,7 +148,16 @@ export function ChatContainer({ language }: ChatContainerProps) {
         setIsLoading(false)
       }
     },
-    [messages, language, attachment, isLoading]
+    [
+      messages,
+      language,
+      attachment,
+      isLoading,
+      isAuthenticated,
+      activeConvId,
+      onConversationCreated,
+      onPersisted,
+    ]
   )
 
   return (

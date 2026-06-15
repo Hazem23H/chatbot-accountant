@@ -2,19 +2,36 @@
 
 import Link from 'next/link'
 import { Language } from '@/types/chat'
-import { PlusCircle, ShieldCheck } from 'lucide-react'
+import { PlusCircle, ShieldCheck, PanelLeft } from 'lucide-react'
 import { AuthButton } from '@/components/auth/AuthButton'
 
 interface HeaderProps {
   language: Language
   onToggleLanguage: () => void
   onNewChat: () => void
+  showHistoryToggle?: boolean
+  onToggleHistory?: () => void
 }
 
-export function Header({ language, onToggleLanguage, onNewChat }: HeaderProps) {
+export function Header({
+  language,
+  onToggleLanguage,
+  onNewChat,
+  showHistoryToggle,
+  onToggleHistory,
+}: HeaderProps) {
   return (
     <header className="flex items-center justify-between px-4 py-3 bg-[#0D4F8C] text-white shadow-md z-10">
       <div className="flex items-center gap-3">
+        {showHistoryToggle && (
+          <button
+            onClick={onToggleHistory}
+            className="md:hidden p-1.5 -ms-1.5 rounded-lg hover:bg-white/10 transition-colors"
+            aria-label={language === 'ar' ? 'المحادثات' : 'Conversations'}
+          >
+            <PanelLeft size={20} />
+          </button>
+        )}
         <div className="w-9 h-9 rounded-full bg-[#C49A1A] flex items-center justify-center text-white font-bold text-lg">
           م
         </div>
