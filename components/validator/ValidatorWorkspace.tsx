@@ -21,6 +21,7 @@ export function ValidatorWorkspace() {
 
   const [saved, setSaved] = useState<SavedValidation[]>([])
   const [viewing, setViewing] = useState<ValidationResult | null>(null)
+  const [viewingFileName, setViewingFileName] = useState<string | null>(null)
   const [validatorKey, setValidatorKey] = useState(0)
 
   const isRtl = language === 'ar'
@@ -56,6 +57,7 @@ export function ValidatorWorkspace() {
       summary: v.summary,
       language: v.language,
     })
+    setViewingFileName(v.fileName)
     setValidatorKey((k) => k + 1)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -81,6 +83,7 @@ export function ValidatorWorkspace() {
         language={language}
         isAuthenticated={isAuthed}
         initialResult={viewing}
+        initialFileName={viewingFileName}
         onSaved={refresh}
       />
 

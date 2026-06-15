@@ -11,14 +11,17 @@ import {
   Info,
   Loader2,
   RotateCcw,
+  Download,
 } from 'lucide-react'
 import type { ExtractedInvoice, ValidationFlag } from '@/lib/zatca-rules'
 import { saveValidation, type ValidationResult } from '@/lib/validation-history'
+import { openReport } from '@/lib/validation-report'
 
 interface InvoiceValidatorProps {
   language?: 'ar' | 'en'
   isAuthenticated?: boolean
   initialResult?: ValidationResult | null
+  initialFileName?: string | null
   onValidationComplete?: (result: ValidationResult) => void
   onSaved?: () => void
 }
@@ -94,6 +97,7 @@ export function InvoiceValidator({
   language = 'ar',
   isAuthenticated = false,
   initialResult = null,
+  initialFileName = null,
   onValidationComplete,
   onSaved,
 }: InvoiceValidatorProps) {
@@ -101,6 +105,7 @@ export function InvoiceValidator({
     initialResult ? 'results' : 'idle'
   )
   const [result, setResult] = useState<ValidationResult | null>(initialResult)
+  const [fileName, setFileName] = useState<string | null>(initialFileName)
   const [error, setError] = useState('')
   const [dragOver, setDragOver] = useState(false)
 
@@ -114,6 +119,7 @@ export function InvoiceValidator({
       }
       setState('loading')
       setError('')
+      setFileName(file.name)
       const formData = new FormData()
       formData.append('file', file)
       formData.append('language', language)
@@ -244,13 +250,22 @@ export function InvoiceValidator({
               : `${summary.errors} error${summary.errors !== 1 ? 's' : ''} · ${summary.warnings} warning${summary.warnings !== 1 ? 's' : ''} · ${summary.infos} info`}
           </p>
         </div>
-        <button
-          onClick={reset}
-          className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors px-3 py-1.5 rounded-lg hover:bg-white/60"
-        >
-          <RotateCcw size={14} />
-          {isRtl ? 'فاتورة جديدة' : 'New invoice'}
-        </button>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => openReport(result, fileName, language)}
+            className="flex items-center gap-1.5 text-sm text-[#0D4F8C] hover:text-[#0a3f73] transition-colors px-3 py-1.5 rounded-lg hover:bg-white/60"
+          >
+            <Download size={14} />
+            {isRtl ? 'تصدير PDF' : 'Export PDF'}
+          </button>
+          <button
+            onClick={reset}
+            className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors px-3 py-1.5 rounded-lg hover:bg-white/60"
+          >
+            <RotateCcw size={14} />
+            {isRtl ? 'فاتورة جديدة' : 'New invoice'}
+          </button>
+        </div>
       </div>
 
       {/* Extracted data grid */}
