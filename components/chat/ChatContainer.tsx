@@ -10,7 +10,7 @@ import { createConversation, saveMessage, loadMessages } from '@/lib/chat-histor
 interface ChatContainerProps {
   language: Language
   isAuthenticated: boolean
-  conversationId: string | null
+  initialConversationId: string | null
   onConversationCreated: (id: string) => void
   onPersisted: () => void
 }
@@ -18,7 +18,7 @@ interface ChatContainerProps {
 export function ChatContainer({
   language,
   isAuthenticated,
-  conversationId,
+  initialConversationId,
   onConversationCreated,
   onPersisted,
 }: ChatContainerProps) {
@@ -26,20 +26,24 @@ export function ChatContainer({
   const [inputValue, setInputValue] = useState('')
   const [attachment, setAttachment] = useState<Attachment | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const [activeConvId, setActiveConvId] = useState<string | null>(conversationId)
+  const [activeConvId, setActiveConvId] = useState<string | null>(initialConversationId)
 
-  // Load an existing conversation's messages when opened from history.
+  // Load messages once, on mount. The parent remounts this component (via key)
+  // when the user opens a different conversation or starts a new chat — so a
+  // mount-only load is correct and avoids clobbering the live in-memory chat
+  // when this component creates its own conversation mid-stream.
   useEffect(() => {
     let cancelled = false
-    if (conversationId) {
-      loadMessages(conversationId).then((msgs) => {
+    if (initialConversationId) {
+      loadMessages(initialConversationId).then((msgs) => {
         if (!cancelled) setMessages(msgs)
       })
     }
     return () => {
       cancelled = true
     }
-  }, [conversationId])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const sendMessage = useCallback(
     async (content: string) => {

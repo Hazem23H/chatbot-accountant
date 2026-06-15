@@ -14,7 +14,9 @@ export default function Home() {
   const [user, setUser] = useState<User | null>(null)
 
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
-  const [newSeed, setNewSeed] = useState(0)
+  // Remount key for the chat. Changes only on explicit navigation (new chat /
+  // open a conversation) — NOT when the chat creates its own conversation.
+  const [sessionKey, setSessionKey] = useState('new-0')
   const [historyOpen, setHistoryOpen] = useState(false)
   const [refreshSignal, setRefreshSignal] = useState(0)
 
@@ -34,7 +36,7 @@ export default function Home() {
       setUser(session?.user ?? null)
       // Reset to a fresh chat when auth state flips.
       setActiveConversationId(null)
-      setNewSeed((s) => s + 1)
+      setSessionKey(`new-${Date.now()}`)
     })
     return () => sub.subscription.unsubscribe()
   }, [supabase])
@@ -49,15 +51,18 @@ export default function Home() {
 
   const handleNewChat = useCallback(() => {
     setActiveConversationId(null)
-    setNewSeed((s) => s + 1)
+    setSessionKey(`new-${Date.now()}`)
     setHistoryOpen(false)
   }, [])
 
   const handleSelectConversation = useCallback((id: string) => {
     setActiveConversationId(id)
+    setSessionKey(id)
     setHistoryOpen(false)
   }, [])
 
+  // Created from within the chat — update the sidebar highlight + list, but do
+  // NOT change sessionKey, so the live chat is not remounted.
   const handleConversationCreated = useCallback((id: string) => {
     setActiveConversationId(id)
     setRefreshSignal((s) => s + 1)
@@ -87,10 +92,10 @@ export default function Home() {
           />
         )}
         <ChatContainer
-          key={activeConversationId ?? `new-${newSeed}`}
+          key={sessionKey}
           language={language}
           isAuthenticated={!!user}
-          conversationId={activeConversationId}
+          initialConversationId={activeConversationId}
           onConversationCreated={handleConversationCreated}
           onPersisted={handlePersisted}
         />
