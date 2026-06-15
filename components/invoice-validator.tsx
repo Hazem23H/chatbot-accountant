@@ -13,23 +13,14 @@ import {
   RotateCcw,
 } from 'lucide-react'
 import type { ExtractedInvoice, ValidationFlag } from '@/lib/zatca-rules'
-
-interface ValidationResult {
-  extracted: ExtractedInvoice
-  flags: ValidationFlag[]
-  summary: {
-    total: number
-    errors: number
-    warnings: number
-    infos: number
-    passed: boolean
-  }
-  language: string
-}
+import { saveValidation, type ValidationResult } from '@/lib/validation-history'
 
 interface InvoiceValidatorProps {
   language?: 'ar' | 'en'
+  isAuthenticated?: boolean
+  initialResult?: ValidationResult | null
   onValidationComplete?: (result: ValidationResult) => void
+  onSaved?: () => void
 }
 
 const ACCEPTED_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'text/csv', 'text/plain']
@@ -99,9 +90,17 @@ function ExtractedGrid({ data, language }: { data: ExtractedInvoice; language: s
   )
 }
 
-export function InvoiceValidator({ language = 'ar', onValidationComplete }: InvoiceValidatorProps) {
-  const [state, setState] = useState<'idle' | 'loading' | 'results'>('idle')
-  const [result, setResult] = useState<ValidationResult | null>(null)
+export function InvoiceValidator({
+  language = 'ar',
+  isAuthenticated = false,
+  initialResult = null,
+  onValidationComplete,
+  onSaved,
+}: InvoiceValidatorProps) {
+  const [state, setState] = useState<'idle' | 'loading' | 'results'>(
+    initialResult ? 'results' : 'idle'
+  )
+  const [result, setResult] = useState<ValidationResult | null>(initialResult)
   const [error, setError] = useState('')
   const [dragOver, setDragOver] = useState(false)
 
@@ -126,12 +125,18 @@ export function InvoiceValidator({ language = 'ar', onValidationComplete }: Invo
         setResult(data)
         setState('results')
         onValidationComplete?.(data)
+        // Persist for signed-in users.
+        if (isAuthenticated) {
+          saveValidation(data, file.name).then((id) => {
+            if (id) onSaved?.()
+          })
+        }
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : 'Unknown error')
         setState('idle')
       }
     },
-    [language, onValidationComplete]
+    [language, isAuthenticated, onValidationComplete, onSaved]
   )
 
   const handleDrop = useCallback(
