@@ -1,11 +1,13 @@
 'use client'
 
-import { Message, Attachment } from '@/types/chat'
+import { Message, Attachment, Language } from '@/types/chat'
 import { cn } from '@/lib/utils'
-import { FileText, Image as ImageIcon, File } from 'lucide-react'
+import { FileText, Image as ImageIcon, File, BookOpen, ExternalLink } from 'lucide-react'
+import { parseCitations, getCitations } from '@/lib/citations'
 
 interface MessageBubbleProps {
   message: Message
+  language: Language
 }
 
 function formatBytes(bytes: number) {
@@ -58,8 +60,40 @@ function formatContent(text: string) {
   })
 }
 
-export function MessageBubble({ message }: MessageBubbleProps) {
+function Citations({ ids, language }: { ids: string[]; language: Language }) {
+  const citations = getCitations(ids)
+  if (citations.length === 0) return null
+  const isAr = language === 'ar'
+
+  return (
+    <div className="mt-3 pt-2.5 border-t border-gray-100">
+      <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 mb-1.5">
+        <BookOpen size={12} />
+        {isAr ? 'المصادر' : 'Sources'}
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {citations.map((c) => (
+          <a
+            key={c.id}
+            href={c.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-xs bg-[#0D4F8C]/8 hover:bg-[#0D4F8C]/15 text-[#0D4F8C] px-2 py-1 rounded-md transition-colors"
+          >
+            {isAr ? c.titleAr : c.titleEn}
+            <ExternalLink size={10} className="opacity-60" />
+          </a>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+export function MessageBubble({ message, language }: MessageBubbleProps) {
   const isUser = message.role === 'user'
+  const { text, ids } = isUser
+    ? { text: message.content, ids: [] as string[] }
+    : parseCitations(message.content)
 
   return (
     <div className={cn('flex items-start gap-3 px-4 py-3', isUser ? 'flex-row-reverse' : 'flex-row')}>
@@ -93,11 +127,16 @@ export function MessageBubble({ message }: MessageBubbleProps) {
             <p className="leading-relaxed whitespace-pre-wrap">{message.content}</p>
           )
         ) : (
-          <div className="prose-sm">{formatContent(message.content)}</div>
+          <div className="prose-sm">{formatContent(text)}</div>
         )}
 
         {message.isStreaming && (
           <span className="inline-block w-1.5 h-4 bg-current opacity-70 animate-pulse ms-1 align-middle" />
+        )}
+
+        {/* Verified source citations (assistant only) */}
+        {!isUser && !message.isStreaming && ids.length > 0 && (
+          <Citations ids={ids} language={language} />
         )}
       </div>
     </div>

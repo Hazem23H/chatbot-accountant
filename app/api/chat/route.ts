@@ -1,8 +1,17 @@
 import { genAI } from '@/lib/gemini'
 import { buildSystemPrompt } from '@/lib/system-prompt'
 import { buildGeminiParts } from '@/lib/file-processor'
+import { citationsForPrompt } from '@/lib/citations'
 import { Attachment, Language, TopicId } from '@/types/chat'
 import { Part } from '@google/generative-ai'
+
+const CITATION_INSTRUCTIONS = `
+
+When your answer makes a factual claim about Saudi tax or ZATCA e-invoicing compliance that is covered by one of the reference sources below, append — on the very last line only — a single tag listing the relevant source ids:
+<sources>id1, id2</sources>
+Rules: use ONLY ids from this list; include at most 3; never invent ids or links; do not mention sources anywhere else in the reply; if none clearly apply, omit the tag entirely. Do not cite for greetings or non-compliance chit-chat.
+Available sources:
+${citationsForPrompt()}`
 
 interface ApiMessage {
   role: 'user' | 'assistant'
@@ -58,7 +67,7 @@ export async function POST(request: Request) {
 
     const model = genAI.getGenerativeModel({
       model: 'gemini-2.5-flash-lite',
-      systemInstruction: buildSystemPrompt(language) + topicHint,
+      systemInstruction: buildSystemPrompt(language) + topicHint + CITATION_INSTRUCTIONS,
     })
 
     // History = all messages except the last one

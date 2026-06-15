@@ -174,7 +174,7 @@ export function ChatContainer({
           }}
         />
       ) : (
-        <MessageList messages={messages} isLoading={isLoading} />
+        <MessageList messages={messages} isLoading={isLoading} language={language} />
       )}
 
       <ChatInput
