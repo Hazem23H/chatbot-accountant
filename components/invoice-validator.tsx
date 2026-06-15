@@ -16,6 +16,7 @@ import {
 import type { ExtractedInvoice, ValidationFlag } from '@/lib/zatca-rules'
 import { saveValidation, type ValidationResult } from '@/lib/validation-history'
 import { openReport } from '@/lib/validation-report'
+import { validateInvoiceFile, ACCEPTED_TYPES, MAX_BYTES } from '@/lib/validate-client'
 
 interface InvoiceValidatorProps {
   language?: 'ar' | 'en'
@@ -25,9 +26,6 @@ interface InvoiceValidatorProps {
   onValidationComplete?: (result: ValidationResult) => void
   onSaved?: () => void
 }
-
-const ACCEPTED_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'text/csv', 'text/plain']
-const MAX_BYTES = 10 * 1024 * 1024
 
 function formatBytes(b: number) {
   if (b < 1024) return `${b} B`
@@ -120,14 +118,8 @@ export function InvoiceValidator({
       setState('loading')
       setError('')
       setFileName(file.name)
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('language', language)
       try {
-        const res = await fetch('/api/validate-invoice', { method: 'POST', body: formData })
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const data: ValidationResult & { error?: string } = await res.json()
-        if (data.error) throw new Error(data.error)
+        const data = await validateInvoiceFile(file, language)
         setResult(data)
         setState('results')
         onValidationComplete?.(data)

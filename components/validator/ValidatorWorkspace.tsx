@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { CheckCircle, XCircle, Trash2, FileText, LogIn } from 'lucide-react'
+import { CheckCircle, XCircle, Trash2, FileText, LogIn, File, Files } from 'lucide-react'
 import { InvoiceValidator } from '@/components/invoice-validator'
+import { BatchValidator } from '@/components/validator/BatchValidator'
 import { createClient } from '@/lib/supabase/client'
 import {
   listValidations,
@@ -19,6 +20,7 @@ export function ValidatorWorkspace() {
   const [isAuthed, setIsAuthed] = useState(false)
   const [authResolved, setAuthResolved] = useState(false)
 
+  const [mode, setMode] = useState<'single' | 'batch'>('single')
   const [saved, setSaved] = useState<SavedValidation[]>([])
   const [viewing, setViewing] = useState<ValidationResult | null>(null)
   const [viewingFileName, setViewingFileName] = useState<string | null>(null)
@@ -78,14 +80,40 @@ export function ValidatorWorkspace() {
 
   return (
     <div className="space-y-6">
-      <InvoiceValidator
-        key={validatorKey}
-        language={language}
-        isAuthenticated={isAuthed}
-        initialResult={viewing}
-        initialFileName={viewingFileName}
-        onSaved={refresh}
-      />
+      {/* Single / Batch toggle */}
+      <div dir={isRtl ? 'rtl' : 'ltr'} className="grid grid-cols-2 gap-1 bg-gray-100 rounded-lg p-1">
+        <button
+          onClick={() => setMode('single')}
+          className={`flex items-center justify-center gap-1.5 py-2 text-sm font-semibold rounded-md transition-colors ${
+            mode === 'single' ? 'bg-white text-[#0D4F8C] shadow-sm' : 'text-gray-500'
+          }`}
+        >
+          <File size={15} />
+          {isRtl ? 'فاتورة واحدة' : 'Single'}
+        </button>
+        <button
+          onClick={() => setMode('batch')}
+          className={`flex items-center justify-center gap-1.5 py-2 text-sm font-semibold rounded-md transition-colors ${
+            mode === 'batch' ? 'bg-white text-[#0D4F8C] shadow-sm' : 'text-gray-500'
+          }`}
+        >
+          <Files size={15} />
+          {isRtl ? 'دفعة' : 'Batch'}
+        </button>
+      </div>
+
+      {mode === 'single' ? (
+        <InvoiceValidator
+          key={validatorKey}
+          language={language}
+          isAuthenticated={isAuthed}
+          initialResult={viewing}
+          initialFileName={viewingFileName}
+          onSaved={refresh}
+        />
+      ) : (
+        <BatchValidator language={language} isAuthenticated={isAuthed} onSaved={refresh} />
+      )}
 
       {/* Saved validations (signed-in) or sign-in nudge (anonymous) */}
       {authResolved && !isAuthed && (
