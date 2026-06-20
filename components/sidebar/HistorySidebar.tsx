@@ -67,17 +67,17 @@ export function HistorySidebar({
       )}
 
       <aside
-        className={`fixed md:static inset-y-0 ${isRtl ? 'right-0' : 'left-0'} z-30 w-72 bg-white border-e flex flex-col shrink-0 transition-transform duration-200 md:translate-x-0 ${closedTransform}`}
+        className={`fixed md:static inset-y-0 ${isRtl ? 'right-0' : 'left-0'} z-30 w-72 bg-card border-e flex flex-col shrink-0 transition-transform duration-200 md:translate-x-0 ${closedTransform}`}
       >
         <div className="px-3 py-3 border-b flex items-center justify-between gap-2">
           <button
             onClick={onNew}
-            className="flex-1 flex items-center justify-center gap-1.5 text-sm font-semibold bg-[#0D4F8C] hover:bg-[#0a3f73] text-white py-2 rounded-lg transition-colors"
+            className="flex-1 flex items-center justify-center gap-1.5 text-sm font-semibold bg-primary hover:brightness-95 text-white py-2 rounded-lg transition-colors"
           >
             <PlusCircle size={16} />
             {language === 'ar' ? 'محادثة جديدة' : 'New chat'}
           </button>
-          <button onClick={onClose} className="md:hidden p-2 text-gray-500" aria-label="close">
+          <button onClick={onClose} className="md:hidden p-2 text-muted-foreground" aria-label="close">
             <X size={18} />
           </button>
         </div>
@@ -85,9 +85,9 @@ export function HistorySidebar({
         <ScrollArea className="flex-1">
           <div className="p-2 flex flex-col gap-0.5">
             {loading ? (
-              <p className="text-xs text-gray-400 text-center py-6">…</p>
+              <p className="text-xs text-muted-foreground text-center py-6">…</p>
             ) : items.length === 0 ? (
-              <p className="text-xs text-gray-400 text-center py-6">
+              <p className="text-xs text-muted-foreground text-center py-6">
                 {language === 'ar' ? 'لا توجد محادثات بعد' : 'No conversations yet'}
               </p>
             ) : (
@@ -96,14 +96,14 @@ export function HistorySidebar({
                   key={c.id}
                   onClick={() => onSelect(c.id)}
                   className={`group flex items-center gap-2 px-2.5 py-2 rounded-lg text-start text-sm transition-colors ${
-                    c.id === activeId ? 'bg-[#0D4F8C]/10 text-[#0D4F8C]' : 'hover:bg-gray-100 text-gray-700'
+                    c.id === activeId ? 'bg-primary/10 text-primary' : 'hover:bg-muted text-foreground'
                   }`}
                 >
                   <MessageSquare size={15} className="shrink-0 opacity-60" />
                   <span className="flex-1 truncate">{c.title}</span>
                   <span
                     onClick={(e) => handleDelete(e, c.id)}
-                    className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-opacity"
+                    className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-500 transition-opacity"
                     aria-label="delete"
                   >
                     <Trash2 size={14} />

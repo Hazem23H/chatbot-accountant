@@ -114,15 +114,15 @@ export function BatchValidator({ language, isAuthenticated, onSaved }: BatchVali
           onClick={() => document.getElementById('zatca-batch-input')?.click()}
           className={`border-2 border-dashed rounded-2xl p-10 text-center transition-colors cursor-pointer ${
             dragOver
-              ? 'border-[#0D4F8C] bg-[#0D4F8C]/5'
-              : 'border-gray-200 hover:border-[#0D4F8C]/50 hover:bg-gray-50'
+              ? 'border-primary bg-primary/5'
+              : 'border-border hover:border-primary/50 hover:bg-muted'
           }`}
         >
-          <Upload size={36} className="mx-auto text-gray-300 mb-3" />
-          <p className="font-semibold text-gray-700 mb-1">
+          <Upload size={36} className="mx-auto text-muted-foreground mb-3" />
+          <p className="font-semibold text-foreground mb-1">
             {isRtl ? 'اسحب عدة فواتير هنا أو انقر للاختيار' : 'Drop multiple invoices or click to choose'}
           </p>
-          <p className="text-sm text-gray-400">
+          <p className="text-sm text-muted-foreground">
             {isRtl ? 'PDF، صور، CSV — حتى 10 ميجابايت لكل ملف' : 'PDF, images, CSV — up to 10 MB each'}
           </p>
           <input
@@ -148,14 +148,14 @@ export function BatchValidator({ language, isAuthenticated, onSaved }: BatchVali
   return (
     <div dir={isRtl ? 'rtl' : 'ltr'} className="space-y-4">
       {/* Summary bar */}
-      <div className="flex items-center gap-3 px-5 py-4 rounded-2xl bg-gray-50 border border-gray-200">
+      <div className="flex items-center gap-3 px-5 py-4 rounded-2xl bg-muted border border-border">
         {running ? (
-          <Loader2 size={24} className="text-[#0D4F8C] animate-spin shrink-0" />
+          <Loader2 size={24} className="text-primary animate-spin shrink-0" />
         ) : (
-          <CheckCircle size={24} className="text-[#0D4F8C] shrink-0" />
+          <CheckCircle size={24} className="text-primary shrink-0" />
         )}
         <div className="flex-1">
-          <p className="font-bold text-gray-800">
+          <p className="font-bold text-foreground">
             {running
               ? isRtl
                 ? `جارٍ المعالجة… ${completed}/${items.length}`
@@ -164,7 +164,7 @@ export function BatchValidator({ language, isAuthenticated, onSaved }: BatchVali
                 ? 'اكتمل الفحص'
                 : 'Batch complete'}
           </p>
-          <p className="text-sm text-gray-600 mt-0.5">
+          <p className="text-sm text-muted-foreground mt-0.5">
             {isRtl
               ? `${passed} ناجحة · ${failed} بها مشكلات${errored ? ` · ${errored} فشل` : ''}`
               : `${passed} passed · ${failed} with issues${errored ? ` · ${errored} failed` : ''}`}
@@ -173,7 +173,7 @@ export function BatchValidator({ language, isAuthenticated, onSaved }: BatchVali
         {!running && (
           <button
             onClick={reset}
-            className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors px-3 py-1.5 rounded-lg hover:bg-white/60"
+            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-lg hover:bg-white/60"
           >
             <RotateCcw size={14} />
             {isRtl ? 'دفعة جديدة' : 'New batch'}
@@ -182,13 +182,13 @@ export function BatchValidator({ language, isAuthenticated, onSaved }: BatchVali
       </div>
 
       {/* Rows */}
-      <div className="rounded-2xl border border-gray-200 overflow-hidden divide-y divide-gray-100">
+      <div className="rounded-2xl border border-border overflow-hidden divide-y divide-border">
         {items.map((it) => (
           <div key={it.id} className="flex items-center gap-3 px-4 py-3">
             <StatusIcon status={it.status} passed={it.result?.summary.passed} />
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-800 truncate">{it.name}</p>
-              <p className="text-xs text-gray-400 mt-0.5">
+              <p className="text-sm font-medium text-foreground truncate">{it.name}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
                 {it.status === 'done' && it.result
                   ? isRtl
                     ? `${it.result.summary.errors} خطأ · ${it.result.summary.warnings} تحذير`
@@ -207,7 +207,7 @@ export function BatchValidator({ language, isAuthenticated, onSaved }: BatchVali
             {it.status === 'done' && it.result && (
               <button
                 onClick={() => openReport(it.result!, it.name, language)}
-                className="flex items-center gap-1.5 text-xs text-[#0D4F8C] hover:text-[#0a3f73] px-2.5 py-1.5 rounded-lg hover:bg-gray-50 transition-colors shrink-0"
+                className="flex items-center gap-1.5 text-xs text-primary hover:opacity-80 px-2.5 py-1.5 rounded-lg hover:bg-muted transition-colors shrink-0"
               >
                 <Download size={13} />
                 PDF
@@ -221,9 +221,9 @@ export function BatchValidator({ language, isAuthenticated, onSaved }: BatchVali
 }
 
 function StatusIcon({ status, passed }: { status: ItemStatus; passed?: boolean }) {
-  if (status === 'running') return <Loader2 size={18} className="text-[#0D4F8C] animate-spin shrink-0" />
-  if (status === 'pending') return <Clock size={18} className="text-gray-300 shrink-0" />
-  if (status === 'error') return <AlertCircle size={18} className="text-gray-400 shrink-0" />
+  if (status === 'running') return <Loader2 size={18} className="text-primary animate-spin shrink-0" />
+  if (status === 'pending') return <Clock size={18} className="text-muted-foreground shrink-0" />
+  if (status === 'error') return <AlertCircle size={18} className="text-muted-foreground shrink-0" />
   return passed ? (
     <CheckCircle size={18} className="text-green-500 shrink-0" />
   ) : (

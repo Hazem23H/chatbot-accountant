@@ -17,7 +17,7 @@ export function TopicCard({ topic, isActive, language, onClick }: TopicCardProps
       className={cn(
         'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border text-start transition-all',
         isActive
-          ? 'bg-[#0D4F8C] text-white border-[#0D4F8C] shadow-sm'
+          ? 'bg-primary text-white border-primary shadow-sm'
           : `${topic.color} hover:opacity-80`
       )}
     >

@@ -81,9 +81,9 @@ function ExtractedGrid({ data, language }: { data: ExtractedInvoice; language: s
     <div className="grid grid-cols-2 gap-2">
       {fields.map(([labelAr, labelEn, value]) =>
         value !== undefined ? (
-          <div key={labelEn} className="bg-gray-50 rounded-lg px-3 py-2">
-            <p className="text-xs text-gray-400">{isAr ? labelAr : labelEn}</p>
-            <p className="text-sm font-medium text-gray-800 break-all">{String(value)}</p>
+          <div key={labelEn} className="bg-muted rounded-lg px-3 py-2">
+            <p className="text-xs text-muted-foreground">{isAr ? labelAr : labelEn}</p>
+            <p className="text-sm font-medium text-foreground break-all">{String(value)}</p>
           </div>
         ) : null
       )}
@@ -173,16 +173,16 @@ export function InvoiceValidator({
           className={`
             border-2 border-dashed rounded-2xl p-10 text-center transition-colors cursor-pointer
             ${dragOver
-              ? 'border-[#0D4F8C] bg-[#0D4F8C]/5'
-              : 'border-gray-200 hover:border-[#0D4F8C]/50 hover:bg-gray-50'}
+              ? 'border-primary bg-primary/5'
+              : 'border-border hover:border-primary/50 hover:bg-muted'}
           `}
           onClick={() => document.getElementById('zatca-file-input')?.click()}
         >
-          <Upload size={36} className="mx-auto text-gray-300 mb-3" />
-          <p className="font-semibold text-gray-700 mb-1">
+          <Upload size={36} className="mx-auto text-muted-foreground mb-3" />
+          <p className="font-semibold text-foreground mb-1">
             {isRtl ? 'اسحب الفاتورة هنا أو انقر للاختيار' : 'Drop invoice here or click to choose'}
           </p>
-          <p className="text-sm text-gray-400">
+          <p className="text-sm text-muted-foreground">
             {isRtl ? 'PDF، صور، CSV — حتى 10 ميجابايت' : 'PDF, images, CSV — up to 10 MB'}
           </p>
           {error && (
@@ -203,12 +203,12 @@ export function InvoiceValidator({
   // ── Loading ───────────────────────────────────────────────────────────────
   if (state === 'loading') {
     return (
-      <div dir={isRtl ? 'rtl' : 'ltr'} className="flex flex-col items-center gap-4 py-16 text-[#0D4F8C]">
+      <div dir={isRtl ? 'rtl' : 'ltr'} className="flex flex-col items-center gap-4 py-16 text-primary">
         <Loader2 size={36} className="animate-spin" />
         <p className="font-medium">
           {isRtl ? 'جارٍ تحليل الفاتورة والتحقق من الامتثال...' : 'Extracting invoice fields and checking compliance…'}
         </p>
-        <p className="text-sm text-gray-400">
+        <p className="text-sm text-muted-foreground">
           {isRtl ? 'قد يستغرق هذا حتى 30 ثانية' : 'This may take up to 30 seconds'}
         </p>
       </div>
@@ -236,7 +236,7 @@ export function InvoiceValidator({
               ? (isRtl ? 'اجتازت الفاتورة جميع الفحوصات' : 'Invoice Passed All Checks')
               : (isRtl ? 'تحتوي الفاتورة على مشكلات تتطلب المراجعة' : 'Invoice Has Issues Requiring Attention')}
           </p>
-          <p className="text-sm text-gray-600 mt-0.5">
+          <p className="text-sm text-muted-foreground mt-0.5">
             {isRtl
               ? `${summary.errors} خطأ · ${summary.warnings} تحذير · ${summary.infos} معلومة`
               : `${summary.errors} error${summary.errors !== 1 ? 's' : ''} · ${summary.warnings} warning${summary.warnings !== 1 ? 's' : ''} · ${summary.infos} info`}
@@ -245,14 +245,14 @@ export function InvoiceValidator({
         <div className="flex items-center gap-1.5">
           <button
             onClick={() => openReport(result, fileName, language)}
-            className="flex items-center gap-1.5 text-sm text-[#0D4F8C] hover:text-[#0a3f73] transition-colors px-3 py-1.5 rounded-lg hover:bg-white/60"
+            className="flex items-center gap-1.5 text-sm text-primary hover:opacity-80 transition-colors px-3 py-1.5 rounded-lg hover:bg-white/60"
           >
             <Download size={14} />
             {isRtl ? 'تصدير PDF' : 'Export PDF'}
           </button>
           <button
             onClick={reset}
-            className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors px-3 py-1.5 rounded-lg hover:bg-white/60"
+            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-lg hover:bg-white/60"
           >
             <RotateCcw size={14} />
             {isRtl ? 'فاتورة جديدة' : 'New invoice'}
@@ -261,10 +261,10 @@ export function InvoiceValidator({
       </div>
 
       {/* Extracted data grid */}
-      <div className="rounded-2xl border border-gray-200 overflow-hidden">
-        <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-200 flex items-center gap-2">
-          <FileText size={15} className="text-gray-500" />
-          <span className="text-sm font-semibold text-gray-700">
+      <div className="rounded-2xl border border-border overflow-hidden">
+        <div className="px-4 py-2.5 bg-muted border-b border-border flex items-center gap-2">
+          <FileText size={15} className="text-muted-foreground" />
+          <span className="text-sm font-semibold text-foreground">
             {isRtl ? 'البيانات المستخرجة' : 'Extracted Data'}
           </span>
         </div>
@@ -275,9 +275,9 @@ export function InvoiceValidator({
 
       {/* Flags by severity */}
       {flags.length > 0 && (
-        <div className="rounded-2xl border border-gray-200 overflow-hidden">
-          <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-200">
-            <span className="text-sm font-semibold text-gray-700">
+        <div className="rounded-2xl border border-border overflow-hidden">
+          <div className="px-4 py-2.5 bg-muted border-b border-border">
+            <span className="text-sm font-semibold text-foreground">
               {isRtl ? 'نتائج الفحص' : 'Validation Results'}
             </span>
           </div>

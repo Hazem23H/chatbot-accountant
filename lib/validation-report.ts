@@ -71,7 +71,7 @@ export function buildReportHtml(
     disclaimer: isRtl
       ? 'هذا التقرير للإرشاد العام فقط ولا يُغني عن مراجعة مستشار ضريبي معتمد. تحقق دائمًا من المتطلبات الحالية على zatca.gov.sa.'
       : 'This report is for general guidance only and does not substitute for a licensed tax advisor. Always verify current requirements at zatca.gov.sa.',
-    brand: isRtl ? 'محاسب السعودية' : 'Saudi Accountant AI',
+    brand: isRtl ? 'محاسب' : 'Mahasib',
   }
 
   return `<!DOCTYPE html>
@@ -82,9 +82,9 @@ export function buildReportHtml(
 <style>
   * { box-sizing: border-box; }
   body { font-family: -apple-system, "Segoe UI", Tahoma, Arial, sans-serif; color: #1f2933; margin: 0; padding: 32px; }
-  .head { display: flex; align-items: center; gap: 12px; border-bottom: 3px solid #0D4F8C; padding-bottom: 16px; }
-  .logo { width: 44px; height: 44px; border-radius: 50%; background: #C49A1A; color: #fff; font-weight: 700; font-size: 22px; display: flex; align-items: center; justify-content: center; }
-  .head h1 { margin: 0; font-size: 18px; color: #0D4F8C; }
+  .head { display: flex; align-items: center; gap: 12px; border-bottom: 3px solid #1c7a4e; padding-bottom: 16px; }
+  .logo { width: 44px; height: 44px; border-radius: 50%; background: #1c7a4e; color: #fff; font-weight: 700; font-size: 22px; display: flex; align-items: center; justify-content: center; }
+  .head h1 { margin: 0; font-size: 18px; color: #1c7a4e; }
   .head p { margin: 2px 0 0; font-size: 12px; color: #6b7280; }
   .meta { font-size: 12px; color: #6b7280; margin: 14px 0; }
   .badge { padding: 14px 18px; border-radius: 12px; margin: 14px 0; }
@@ -94,7 +94,7 @@ export function buildReportHtml(
   .badge.pass h2 { color: #16a34a; }
   .badge.fail h2 { color: #dc2626; }
   .badge .counts { font-size: 13px; color: #4b5563; margin-top: 4px; }
-  h3 { font-size: 13px; color: #0D4F8C; text-transform: uppercase; letter-spacing: .04em; margin: 22px 0 8px; }
+  h3 { font-size: 13px; color: #1c7a4e; text-transform: uppercase; letter-spacing: .04em; margin: 22px 0 8px; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   td { padding: 7px 10px; border-bottom: 1px solid #f0f0f0; }
   td.k { color: #6b7280; width: 45%; }

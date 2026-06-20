@@ -81,11 +81,11 @@ export function ValidatorWorkspace() {
   return (
     <div className="space-y-6">
       {/* Single / Batch toggle */}
-      <div dir={isRtl ? 'rtl' : 'ltr'} className="grid grid-cols-2 gap-1 bg-gray-100 rounded-lg p-1">
+      <div dir={isRtl ? 'rtl' : 'ltr'} className="grid grid-cols-2 gap-1 bg-muted rounded-lg p-1">
         <button
           onClick={() => setMode('single')}
           className={`flex items-center justify-center gap-1.5 py-2 text-sm font-semibold rounded-md transition-colors ${
-            mode === 'single' ? 'bg-white text-[#0D4F8C] shadow-sm' : 'text-gray-500'
+            mode === 'single' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground'
           }`}
         >
           <File size={15} />
@@ -94,7 +94,7 @@ export function ValidatorWorkspace() {
         <button
           onClick={() => setMode('batch')}
           className={`flex items-center justify-center gap-1.5 py-2 text-sm font-semibold rounded-md transition-colors ${
-            mode === 'batch' ? 'bg-white text-[#0D4F8C] shadow-sm' : 'text-gray-500'
+            mode === 'batch' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground'
           }`}
         >
           <Files size={15} />
@@ -119,7 +119,7 @@ export function ValidatorWorkspace() {
       {authResolved && !isAuthed && (
         <Link
           href="/login"
-          className="flex items-center justify-center gap-2 text-sm text-[#0D4F8C] bg-[#0D4F8C]/5 hover:bg-[#0D4F8C]/10 border border-[#0D4F8C]/15 rounded-xl py-3 transition-colors"
+          className="flex items-center justify-center gap-2 text-sm text-primary bg-primary/5 hover:bg-primary/10 border border-primary/15 rounded-xl py-3 transition-colors"
         >
           <LogIn size={15} />
           {isRtl ? 'سجّل الدخول لحفظ نتائج الفحص' : 'Sign in to save your validation results'}
@@ -127,18 +127,18 @@ export function ValidatorWorkspace() {
       )}
 
       {isAuthed && saved.length > 0 && (
-        <div dir={isRtl ? 'rtl' : 'ltr'} className="rounded-2xl border border-gray-200 overflow-hidden">
-          <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-200">
-            <span className="text-sm font-semibold text-gray-700">
+        <div dir={isRtl ? 'rtl' : 'ltr'} className="rounded-2xl border border-border overflow-hidden">
+          <div className="px-4 py-2.5 bg-muted border-b border-border">
+            <span className="text-sm font-semibold text-foreground">
               {isRtl ? 'الفواتير المحفوظة' : 'Saved validations'}
             </span>
           </div>
-          <div className="divide-y divide-gray-100">
+          <div className="divide-y divide-border">
             {saved.map((v) => (
               <button
                 key={v.id}
                 onClick={() => openSaved(v)}
-                className="group w-full flex items-center gap-3 px-4 py-3 text-start hover:bg-gray-50 transition-colors"
+                className="group w-full flex items-center gap-3 px-4 py-3 text-start hover:bg-muted transition-colors"
               >
                 {v.summary.passed ? (
                   <CheckCircle size={18} className="text-green-500 shrink-0" />
@@ -146,11 +146,11 @@ export function ValidatorWorkspace() {
                   <XCircle size={18} className="text-red-500 shrink-0" />
                 )}
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-800 truncate flex items-center gap-1.5">
-                    <FileText size={13} className="text-gray-400 shrink-0" />
+                  <p className="text-sm font-medium text-foreground truncate flex items-center gap-1.5">
+                    <FileText size={13} className="text-muted-foreground shrink-0" />
                     {v.fileName || (isRtl ? 'فاتورة' : 'Invoice')}
                   </p>
-                  <p className="text-xs text-gray-400 mt-0.5">
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     {fmtDate(v.createdAt)}
                     {' · '}
                     {isRtl
@@ -160,7 +160,7 @@ export function ValidatorWorkspace() {
                 </div>
                 <span
                   onClick={(e) => handleDelete(e, v.id)}
-                  className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-opacity p-1"
+                  className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-500 transition-opacity p-1"
                   aria-label="delete"
                 >
                   <Trash2 size={15} />

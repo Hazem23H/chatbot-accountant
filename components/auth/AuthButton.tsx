@@ -55,14 +55,14 @@ export function AuthButton({ language }: AuthButtonProps) {
             referrerPolicy="no-referrer"
           />
         ) : (
-          <div className="w-8 h-8 rounded-full bg-[#C49A1A] flex items-center justify-center text-sm font-bold">
+          <div className="w-8 h-8 rounded-full bg-accent text-accent-foreground flex items-center justify-center text-sm font-semibold">
             {name.charAt(0).toUpperCase()}
           </div>
         )}
         <button
           onClick={signOut}
           title={language === 'ar' ? 'تسجيل الخروج' : 'Sign out'}
-          className="flex items-center gap-1.5 text-xs bg-white/10 hover:bg-white/20 transition-colors px-3 py-1.5 rounded-full"
+          className="flex items-center gap-1.5 text-xs border border-border hover:border-primary hover:text-primary transition-colors px-3 py-1.5 rounded-full"
         >
           <LogOut size={14} />
           <span className="hidden sm:inline">
@@ -76,7 +76,7 @@ export function AuthButton({ language }: AuthButtonProps) {
   return (
     <Link
       href="/login"
-      className="flex items-center gap-1.5 text-xs bg-[#C49A1A] hover:bg-[#b8891a] transition-colors px-3 py-1.5 rounded-full font-semibold"
+      className="flex items-center gap-1.5 text-xs bg-primary text-primary-foreground hover:brightness-95 transition-colors px-3 py-1.5 rounded-full font-semibold"
     >
       <LogIn size={14} />
       <span>{language === 'ar' ? 'تسجيل الدخول' : 'Sign in'}</span>

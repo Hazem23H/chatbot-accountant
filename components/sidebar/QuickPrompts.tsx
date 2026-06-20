@@ -19,7 +19,7 @@ export function QuickPrompts({ language, activeTopic, onPromptClick }: QuickProm
         <button
           key={i}
           onClick={() => onPromptClick(language === 'ar' ? prompt.ar : prompt.en)}
-          className="text-xs bg-white border border-[#0D4F8C]/20 text-[#0D4F8C] hover:bg-[#0D4F8C] hover:text-white transition-colors px-3 py-1.5 rounded-full text-start"
+          className="text-xs bg-card border border-primary/20 text-primary hover:bg-primary hover:text-white transition-colors px-3 py-1.5 rounded-full text-start"
         >
           {language === 'ar' ? prompt.ar : prompt.en}
         </button>

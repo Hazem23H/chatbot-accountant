@@ -27,15 +27,16 @@ export function WelcomeScreen({ language, onQuestionClick }: WelcomeScreenProps)
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center px-4 py-8 overflow-y-auto">
-      <div className="w-14 h-14 rounded-full bg-[#0D4F8C] flex items-center justify-center text-white text-2xl mb-4 shadow-md">
+      <div className="w-14 h-14 rounded-[16px] bg-primary text-primary-foreground flex items-center justify-center text-2xl font-semibold mb-4 shadow-sm">
         م
       </div>
 
-      <h2 className="text-xl font-bold text-[#0D4F8C] mb-1 text-center">
-        {language === 'ar' ? 'محاسب السعودية' : 'Saudi Accountant AI'}
+      <h2 className="text-xl font-semibold mb-0.5 text-center">
+        {language === 'ar' ? 'محاسب' : 'Mahasib'}
       </h2>
+      <p className="font-mono text-[10px] tracking-[0.2em] text-muted-foreground mb-3">MAHASIB</p>
 
-      <p className="text-gray-500 text-sm mb-8 text-center max-w-sm">
+      <p className="text-muted-foreground text-sm mb-8 text-center max-w-sm">
         {language === 'ar'
           ? 'اسألني عن الزكاة، ضريبة القيمة المضافة، IFRS، الفوترة الإلكترونية، والمزيد.'
           : 'Ask me about Zakat, VAT, IFRS, e-invoicing, and more.'}
@@ -46,14 +47,14 @@ export function WelcomeScreen({ language, onQuestionClick }: WelcomeScreenProps)
           <button
             key={i}
             onClick={() => onQuestionClick(q)}
-            className="text-start text-sm px-4 py-3 rounded-xl border border-[#0D4F8C]/15 bg-white hover:border-[#0D4F8C]/40 hover:bg-[#0D4F8C]/5 text-gray-700 transition-colors"
+            className="text-start text-sm px-4 py-3 rounded-xl border border-primary/15 bg-card hover:border-primary/40 hover:bg-primary/5 text-foreground transition-colors"
           >
             {q}
           </button>
         ))}
       </div>
 
-      <p className="text-xs text-gray-400 mt-8 text-center max-w-xs">
+      <p className="text-xs text-muted-foreground mt-8 text-center max-w-xs">
         {language === 'ar'
           ? 'تحقق دائمًا من المصادر الرسمية للقرارات الحرجة'
           : 'Always verify critical decisions with official sources'}

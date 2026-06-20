@@ -87,9 +87,9 @@ export function DocumentAnalysisCard({
 
   if (state === 'loading') {
     return (
-      <div className="rounded-xl border border-[#0D4F8C]/20 bg-[#0D4F8C]/5 px-4 py-3 flex items-center gap-3 animate-pulse">
-        <FileSearch size={16} className="text-[#0D4F8C] shrink-0" />
-        <span className="text-sm text-[#0D4F8C]">
+      <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 flex items-center gap-3 animate-pulse">
+        <FileSearch size={16} className="text-primary shrink-0" />
+        <span className="text-sm text-primary">
           {language === 'ar' ? 'جارٍ تحليل الوثيقة...' : 'Analyzing document...'}
         </span>
       </div>
@@ -117,17 +117,17 @@ export function DocumentAnalysisCard({
 
   return (
     <div
-      className="rounded-xl border border-[#0D4F8C]/20 bg-white shadow-sm overflow-hidden text-sm"
+      className="rounded-xl border border-primary/20 bg-card shadow-sm overflow-hidden text-sm"
       dir={isRtl ? 'rtl' : 'ltr'}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2.5 bg-[#0D4F8C]/6 border-b border-[#0D4F8C]/10">
+      <div className="flex items-center justify-between px-4 py-2.5 bg-primary/6 border-b border-primary/10">
         <div className="flex items-center gap-2 min-w-0">
-          <FileSearch size={15} className="text-[#0D4F8C] shrink-0" />
-          <span className="font-semibold text-[#0D4F8C] truncate max-w-[160px]">
+          <FileSearch size={15} className="text-primary shrink-0" />
+          <span className="font-semibold text-primary truncate max-w-[160px]">
             {file.name}
           </span>
-          <span className="text-[#0D4F8C]/60 text-xs shrink-0">
+          <span className="text-primary/60 text-xs shrink-0">
             — {result.documentType}
           </span>
         </div>
@@ -140,15 +140,15 @@ export function DocumentAnalysisCard({
 
       <div className="px-4 py-3 space-y-3">
         {/* Summary */}
-        <p className="text-gray-600 leading-relaxed">{result.summary}</p>
+        <p className="text-muted-foreground leading-relaxed">{result.summary}</p>
 
         {/* Key Figures */}
         {result.keyFigures.length > 0 && (
           <div className="grid grid-cols-2 gap-2">
             {result.keyFigures.map((kf, i) => (
-              <div key={i} className="bg-gray-50 rounded-lg px-3 py-2">
-                <p className="text-xs text-gray-400">{kf.label}</p>
-                <p className="font-semibold text-gray-800">{kf.value}</p>
+              <div key={i} className="bg-muted rounded-lg px-3 py-2">
+                <p className="text-xs text-muted-foreground">{kf.label}</p>
+                <p className="font-semibold text-foreground">{kf.value}</p>
               </div>
             ))}
           </div>
@@ -169,12 +169,12 @@ export function DocumentAnalysisCard({
         {/* Recommendations */}
         {result.recommendations.length > 0 && (
           <div>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
               {language === 'ar' ? 'التوصيات' : 'Recommendations'}
             </p>
             <ol className="space-y-1 list-decimal list-inside">
               {result.recommendations.map((rec, i) => (
-                <li key={i} className="text-gray-700">
+                <li key={i} className="text-foreground">
                   {rec}
                 </li>
               ))}

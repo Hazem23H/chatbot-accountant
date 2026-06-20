@@ -25,7 +25,7 @@ function AttachmentBadge({ attachment, isUser }: { attachment: Attachment; isUse
         'flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs mb-2 border w-fit',
         isUser
           ? 'bg-white/15 border-white/20 text-white'
-          : 'bg-[#0D4F8C]/8 border-[#0D4F8C]/20 text-[#0D4F8C]'
+          : 'bg-primary/8 border-primary/20 text-primary'
       )}
     >
       <Icon size={12} className="shrink-0" />
@@ -66,8 +66,8 @@ function Citations({ ids, language }: { ids: string[]; language: Language }) {
   const isAr = language === 'ar'
 
   return (
-    <div className="mt-3 pt-2.5 border-t border-gray-100">
-      <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 mb-1.5">
+    <div className="mt-3 pt-2.5 border-t border-border">
+      <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground mb-1.5">
         <BookOpen size={12} />
         {isAr ? 'المصادر' : 'Sources'}
       </div>
@@ -78,7 +78,7 @@ function Citations({ ids, language }: { ids: string[]; language: Language }) {
             href={c.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-xs bg-[#0D4F8C]/8 hover:bg-[#0D4F8C]/15 text-[#0D4F8C] px-2 py-1 rounded-md transition-colors"
+            className="inline-flex items-center gap-1 text-xs bg-primary/8 hover:bg-primary/15 text-primary px-2 py-1 rounded-md transition-colors"
           >
             {isAr ? c.titleAr : c.titleEn}
             <ExternalLink size={10} className="opacity-60" />
@@ -100,8 +100,8 @@ export function MessageBubble({ message, language }: MessageBubbleProps) {
       {/* Avatar */}
       <div
         className={cn(
-          'w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0',
-          isUser ? 'bg-[#C49A1A] text-white' : 'bg-[#0D4F8C] text-white'
+          'w-8 h-8 rounded-[10px] flex items-center justify-center text-sm font-semibold shrink-0',
+          isUser ? 'bg-primary text-primary-foreground' : 'bg-accent text-accent-foreground'
         )}
       >
         {isUser ? '👤' : 'م'}
@@ -112,8 +112,8 @@ export function MessageBubble({ message, language }: MessageBubbleProps) {
         className={cn(
           'max-w-[75%] rounded-2xl px-4 py-3 shadow-sm text-sm',
           isUser
-            ? 'bg-[#0D4F8C] text-white rounded-se-none'
-            : 'bg-white border rounded-ss-none text-gray-800'
+            ? 'bg-primary text-primary-foreground rounded-se-none'
+            : 'bg-card border border-border rounded-ss-none text-foreground'
         )}
       >
         {/* Attachment badge */}

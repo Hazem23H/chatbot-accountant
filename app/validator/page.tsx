@@ -3,17 +3,17 @@ import { AlertCircle } from 'lucide-react'
 
 export default function ValidatorPage() {
   return (
-    <main className="min-h-screen bg-gray-50 py-10 px-4">
+    <main className="min-h-screen bg-muted py-10 px-4">
       <div className="max-w-2xl mx-auto space-y-6">
         {/* Title */}
         <div className="text-center space-y-1">
-          <h1 className="text-2xl font-bold text-[#0D4F8C]">
+          <h1 className="text-2xl font-bold text-primary">
             التحقق من الفاتورة الإلكترونية
           </h1>
-          <p className="text-gray-500 text-sm">
+          <p className="text-muted-foreground text-sm">
             ZATCA E-Invoice Validator
           </p>
-          <p className="text-gray-400 text-xs mt-1">
+          <p className="text-muted-foreground text-xs mt-1">
             فحص الامتثال لمتطلبات هيئة الزكاة والضريبة والجمارك
             &nbsp;·&nbsp;
             Compliance check for Saudi e-invoicing requirements

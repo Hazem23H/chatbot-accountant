@@ -108,7 +108,7 @@ export function ChatInput({
       : 'Ask a question about Saudi accounting...'
 
   return (
-    <div className="border-t bg-white px-4 py-3">
+    <div className="border-t bg-card px-4 py-3">
       {/* Document analysis card — shown immediately after file selection */}
       {rawFile && (
         <div className="mb-3">
@@ -119,14 +119,14 @@ export function ChatInput({
       {/* Attachment preview strip */}
       {attachment && (
         <div className="flex items-center gap-2 mb-2 px-1">
-          <div className="flex items-center gap-2 bg-[#0D4F8C]/8 border border-[#0D4F8C]/20 rounded-lg px-3 py-1.5 text-[#0D4F8C] text-xs max-w-full">
+          <div className="flex items-center gap-2 bg-primary/8 border border-primary/20 rounded-lg px-3 py-1.5 text-primary text-xs max-w-full">
             <AttachmentIcon kind={attachment.kind} />
             <span className="truncate max-w-[180px] font-medium">{attachment.name}</span>
-            <span className="text-[#0D4F8C]/50 shrink-0">{formatBytes(attachment.size)}</span>
+            <span className="text-primary/50 shrink-0">{formatBytes(attachment.size)}</span>
           </div>
           <button
             onClick={() => onFileAttach(null)}
-            className="text-gray-400 hover:text-red-500 transition-colors"
+            className="text-muted-foreground hover:text-red-500 transition-colors"
             title={language === 'ar' ? 'إزالة الملف' : 'Remove file'}
           >
             <X size={14} />
@@ -134,13 +134,13 @@ export function ChatInput({
         </div>
       )}
 
-      <div className="flex items-end gap-2 bg-gray-50 rounded-2xl border px-3 py-2 focus-within:border-[#0D4F8C] transition-colors">
+      <div className="flex items-end gap-2 bg-muted rounded-2xl border px-3 py-2 focus-within:border-primary transition-colors">
         {/* Attach button */}
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
           disabled={isLoading}
-          className="text-gray-400 hover:text-[#0D4F8C] transition-colors disabled:opacity-40 pb-1 shrink-0"
+          className="text-muted-foreground hover:text-primary transition-colors disabled:opacity-40 pb-1 shrink-0"
           title={language === 'ar' ? 'إرفاق ملف' : 'Attach file'}
         >
           <Paperclip size={18} />
@@ -162,20 +162,20 @@ export function ChatInput({
           placeholder={placeholder}
           disabled={isLoading}
           rows={1}
-          className="flex-1 resize-none bg-transparent outline-none text-sm text-gray-800 placeholder:text-gray-400 py-1 max-h-[120px] disabled:opacity-50"
+          className="flex-1 resize-none bg-transparent outline-none text-sm text-foreground placeholder:text-muted-foreground py-1 max-h-[120px] disabled:opacity-50"
           style={{ direction: language === 'ar' ? 'rtl' : 'ltr' }}
         />
 
         <button
           onClick={onSend}
           disabled={!canSend}
-          className="w-8 h-8 rounded-full bg-[#0D4F8C] hover:bg-[#0a3d6f] disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center shrink-0 mb-0.5"
+          className="w-8 h-8 rounded-full bg-primary hover:brightness-95 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center shrink-0 mb-0.5"
         >
           <Send size={14} className="text-white" />
         </button>
       </div>
 
-      <p className="text-xs text-gray-400 text-center mt-1.5">
+      <p className="text-xs text-muted-foreground text-center mt-1.5">
         {language === 'ar'
           ? 'يدعم PDF، الصور، CSV — حتى 10 ميجابايت • للتوجيه العام فقط'
           : 'Supports PDF, images, CSV — up to 10 MB • For general guidance only'}

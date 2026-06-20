@@ -71,7 +71,7 @@ export default function Home() {
   const handlePersisted = useCallback(() => setRefreshSignal((s) => s + 1), [])
 
   return (
-    <div className="flex flex-col h-dvh overflow-hidden bg-[#F8F9FA]">
+    <div className="flex flex-col h-dvh overflow-hidden bg-background">
       <Header
         language={language}
         onToggleLanguage={toggleLanguage}
