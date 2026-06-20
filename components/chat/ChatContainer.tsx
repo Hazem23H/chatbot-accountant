@@ -1,32 +1,38 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { Message, Attachment, Language } from '@/types/chat'
 import { MessageList } from './MessageList'
 import { ChatInput } from './ChatInput'
 import { WelcomeScreen } from './WelcomeScreen'
 import { createConversation, saveMessage, loadMessages } from '@/lib/chat-history'
+import { parseCitations } from '@/lib/citations'
 
 interface ChatContainerProps {
   language: Language
   isAuthenticated: boolean
   initialConversationId: string | null
+  initialQuery?: string
   onConversationCreated: (id: string) => void
   onPersisted: () => void
+  onLatestCitations?: (ids: string[]) => void
 }
 
 export function ChatContainer({
   language,
   isAuthenticated,
   initialConversationId,
+  initialQuery,
   onConversationCreated,
   onPersisted,
+  onLatestCitations,
 }: ChatContainerProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [inputValue, setInputValue] = useState('')
   const [attachment, setAttachment] = useState<Attachment | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [activeConvId, setActiveConvId] = useState<string | null>(initialConversationId)
+  const didAutoSend = useRef(false)
 
   // Load messages once, on mount. The parent remounts this component (via key)
   // when the user opens a different conversation or starts a new chat — so a
@@ -163,6 +169,22 @@ export function ChatContainer({
       onPersisted,
     ]
   )
+
+  // Auto-send a query handed in from the dashboard ask box (once).
+  useEffect(() => {
+    if (!didAutoSend.current && initialQuery && initialQuery.trim()) {
+      didAutoSend.current = true
+      sendMessage(initialQuery)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialQuery])
+
+  // Report the latest assistant message's citations to the sources panel.
+  useEffect(() => {
+    if (!onLatestCitations) return
+    const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant' && !m.isStreaming)
+    onLatestCitations(lastAssistant ? parseCitations(lastAssistant.content).ids : [])
+  }, [messages, onLatestCitations])
 
   return (
     <div className="flex flex-col flex-1 min-h-0">

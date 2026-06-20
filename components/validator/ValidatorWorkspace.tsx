@@ -14,9 +14,8 @@ import {
 } from '@/lib/validation-history'
 import type { Language } from '@/types/chat'
 
-export function ValidatorWorkspace() {
+export function ValidatorWorkspace({ language }: { language: Language }) {
   const [supabase] = useState(() => createClient())
-  const [language, setLanguage] = useState<Language>('ar')
   const [isAuthed, setIsAuthed] = useState(false)
   const [authResolved, setAuthResolved] = useState(false)
 
@@ -27,11 +26,6 @@ export function ValidatorWorkspace() {
   const [validatorKey, setValidatorKey] = useState(0)
 
   const isRtl = language === 'ar'
-
-  useEffect(() => {
-    const lang = localStorage.getItem('sa-lang') as Language | null
-    if (lang === 'ar' || lang === 'en') setLanguage(lang)
-  }, [])
 
   const refresh = useCallback(async () => {
     setSaved(await listValidations())
