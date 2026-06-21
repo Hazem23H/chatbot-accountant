@@ -24,8 +24,19 @@ interface InvoiceValidatorProps {
   clientId?: string | null
   initialResult?: ValidationResult | null
   initialFileName?: string | null
+  initialFileUrl?: string | null
   onValidationComplete?: (result: ValidationResult) => void
   onSaved?: () => void
+}
+
+const IMG_EXTS = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'svg']
+
+/** Decide preview kind from a filename when no in-memory File is available. */
+function kindFromName(name: string | null): 'img' | 'pdf' | 'other' {
+  const ext = name?.split('.').pop()?.toLowerCase() ?? ''
+  if (ext === 'pdf') return 'pdf'
+  if (IMG_EXTS.includes(ext)) return 'img'
+  return 'other'
 }
 
 function formatBytes(b: number) {
@@ -91,6 +102,7 @@ export function InvoiceValidator({
   clientId = null,
   initialResult = null,
   initialFileName = null,
+  initialFileUrl = null,
   onValidationComplete,
   onSaved,
 }: InvoiceValidatorProps) {
@@ -130,7 +142,7 @@ export function InvoiceValidator({
         onValidationComplete?.(data)
         // Persist for signed-in users.
         if (isAuthenticated) {
-          saveValidation(data, file.name, clientId).then((id) => {
+          saveValidation(data, file.name, clientId, file).then((id) => {
             if (id) onSaved?.()
           })
         }
@@ -231,8 +243,10 @@ export function InvoiceValidator({
     ...flags.filter((f) => f.severity === 'warning'),
     ...flags.filter((f) => f.severity === 'info'),
   ]
-  const isImg = file?.type.startsWith('image/') ?? false
-  const isPdf = file?.type === 'application/pdf'
+  // Prefer the freshly uploaded file; fall back to a stored file's signed URL.
+  const previewUrl = fileUrl ?? initialFileUrl
+  const isImg = file ? file.type.startsWith('image/') : kindFromName(fileName) === 'img'
+  const isPdf = file ? file.type === 'application/pdf' : kindFromName(fileName) === 'pdf'
 
   const bannerTone = summary.passed
     ? 'pass'
@@ -261,11 +275,11 @@ export function InvoiceValidator({
           )}
         </div>
         <div className="flex-1 min-h-[440px] max-h-[72vh] overflow-auto bg-muted p-4">
-          {fileUrl && isImg ? (
+          {previewUrl && isImg ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={fileUrl} alt={fileName ?? 'invoice'} className="max-w-full mx-auto rounded-lg shadow-sm" />
-          ) : fileUrl && isPdf ? (
-            <iframe src={fileUrl} title="invoice" className="w-full h-full min-h-[440px] rounded-lg bg-card" />
+            <img src={previewUrl} alt={fileName ?? 'invoice'} className="max-w-full mx-auto rounded-lg shadow-sm" />
+          ) : previewUrl && isPdf ? (
+            <iframe src={previewUrl} title="invoice" className="w-full h-full min-h-[440px] rounded-lg bg-card" />
           ) : (
             <div className="bg-card rounded-xl border border-border p-4">
               <p className="text-xs text-muted-foreground mb-3">

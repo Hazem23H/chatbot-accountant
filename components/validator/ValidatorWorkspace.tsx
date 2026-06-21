@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase/client'
 import {
   listValidations,
   deleteValidation,
+  getInvoiceFileUrl,
   type SavedValidation,
   type ValidationResult,
 } from '@/lib/validation-history'
@@ -29,6 +30,7 @@ export function ValidatorWorkspace({
   const [saved, setSaved] = useState<SavedValidation[]>([])
   const [viewing, setViewing] = useState<ValidationResult | null>(null)
   const [viewingFileName, setViewingFileName] = useState<string | null>(null)
+  const [viewingFileUrl, setViewingFileUrl] = useState<string | null>(null)
   const [validatorKey, setValidatorKey] = useState(0)
 
   const isRtl = language === 'ar'
@@ -52,7 +54,7 @@ export function ValidatorWorkspace({
     return () => sub.subscription.unsubscribe()
   }, [supabase, refresh])
 
-  const openSaved = (v: SavedValidation) => {
+  const openSaved = async (v: SavedValidation) => {
     setViewing({
       extracted: v.extracted,
       flags: v.flags,
@@ -60,14 +62,16 @@ export function ValidatorWorkspace({
       language: v.language,
     })
     setViewingFileName(v.fileName)
+    setViewingFileUrl(null)
     setValidatorKey((k) => k + 1)
     window.scrollTo({ top: 0, behavior: 'smooth' })
+    if (v.filePath) setViewingFileUrl(await getInvoiceFileUrl(v.filePath))
   }
 
-  const handleDelete = async (e: React.MouseEvent, id: string) => {
+  const handleDelete = async (e: React.MouseEvent, v: SavedValidation) => {
     e.stopPropagation()
-    setSaved((prev) => prev.filter((v) => v.id !== id))
-    await deleteValidation(id)
+    setSaved((prev) => prev.filter((s) => s.id !== v.id))
+    await deleteValidation(v.id, v.filePath)
   }
 
   const fmtDate = (iso: string) =>
@@ -110,6 +114,7 @@ export function ValidatorWorkspace({
           clientId={clientId}
           initialResult={viewing}
           initialFileName={viewingFileName}
+          initialFileUrl={viewingFileUrl}
           onSaved={refresh}
         />
       ) : (
@@ -165,7 +170,7 @@ export function ValidatorWorkspace({
                   </p>
                 </div>
                 <span
-                  onClick={(e) => handleDelete(e, v.id)}
+                  onClick={(e) => handleDelete(e, v)}
                   className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-500 transition-opacity p-1"
                   aria-label="delete"
                 >

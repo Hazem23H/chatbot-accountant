@@ -63,7 +63,7 @@ export function BatchValidator({ language, isAuthenticated, clientId = null, onS
           const result = await validateInvoiceFile(item.file, language)
           update(item.id, { status: 'done', result })
           if (isAuthenticated) {
-            saveValidation(result, item.name, clientId).then((id) => {
+            saveValidation(result, item.name, clientId, item.file).then((id) => {
               if (id) onSaved?.()
             })
           }
