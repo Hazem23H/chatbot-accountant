@@ -59,7 +59,7 @@ export default function ValidatorPage() {
         </div>
 
         <div className="px-6 md:px-9 py-7 pb-12">
-          <div className="max-w-[760px] mx-auto space-y-6">
+          <div className="max-w-[1100px] mx-auto space-y-6">
             <ValidatorWorkspace language={language} clientId={clientId} />
 
             <div className="flex items-start gap-2 bg-warning-soft border border-warning/40 rounded-xl px-4 py-3 text-sm text-warning-foreground">

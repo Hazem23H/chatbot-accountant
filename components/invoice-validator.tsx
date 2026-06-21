@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, DragEvent } from 'react'
+import { useState, useCallback, useEffect, useMemo, DragEvent } from 'react'
 import {
   Upload,
   FileText,
@@ -34,28 +34,21 @@ function formatBytes(b: number) {
   return `${(b / (1024 * 1024)).toFixed(1)} MB`
 }
 
-function FlagRow({ flag, language }: { flag: ValidationFlag; language: string }) {
+function IssueCard({ flag, language }: { flag: ValidationFlag; language: string }) {
   const isAr = language === 'ar'
   const msg = isAr ? flag.messageAr : flag.message
 
-  if (flag.severity === 'error')
-    return (
-      <div className="flex items-start gap-2 text-red-700">
-        <AlertCircle size={15} className="shrink-0 mt-0.5 text-red-500" />
-        <span className="text-sm">{msg}</span>
-      </div>
-    )
-  if (flag.severity === 'warning')
-    return (
-      <div className="flex items-start gap-2 text-amber-700">
-        <AlertTriangle size={15} className="shrink-0 mt-0.5 text-amber-500" />
-        <span className="text-sm">{msg}</span>
-      </div>
-    )
+  const tone =
+    flag.severity === 'error'
+      ? { border: 'border-s-destructive', icon: <AlertCircle size={15} className="text-destructive" /> }
+      : flag.severity === 'warning'
+        ? { border: 'border-s-warning', icon: <AlertTriangle size={15} className="text-warning" /> }
+        : { border: 'border-s-primary', icon: <Info size={15} className="text-primary" /> }
+
   return (
-    <div className="flex items-start gap-2 text-blue-700">
-      <Info size={15} className="shrink-0 mt-0.5 text-blue-500" />
-      <span className="text-sm">{msg}</span>
+    <div className={`border border-border border-s-[3px] ${tone.border} rounded-xl px-3.5 py-3 flex items-start gap-2.5`}>
+      <span className="shrink-0 mt-0.5">{tone.icon}</span>
+      <span className="text-sm leading-relaxed text-foreground">{msg}</span>
     </div>
   )
 }
@@ -106,10 +99,19 @@ export function InvoiceValidator({
   )
   const [result, setResult] = useState<ValidationResult | null>(initialResult)
   const [fileName, setFileName] = useState<string | null>(initialFileName)
+  const [file, setFile] = useState<File | null>(null)
   const [error, setError] = useState('')
   const [dragOver, setDragOver] = useState(false)
 
   const isRtl = language === 'ar'
+
+  // Object URL for the invoice preview pane; revoked when the file changes.
+  const fileUrl = useMemo(() => (file ? URL.createObjectURL(file) : null), [file])
+  useEffect(() => {
+    return () => {
+      if (fileUrl) URL.revokeObjectURL(fileUrl)
+    }
+  }, [fileUrl])
 
   const validate = useCallback(
     async (file: File) => {
@@ -120,6 +122,7 @@ export function InvoiceValidator({
       setState('loading')
       setError('')
       setFileName(file.name)
+      setFile(file)
       try {
         const data = await validateInvoiceFile(file, language)
         setResult(data)
@@ -162,6 +165,8 @@ export function InvoiceValidator({
     setState('idle')
     setResult(null)
     setError('')
+    setFile(null)
+    setFileName(null)
   }
 
   // ── Idle (drag-drop upload zone) ──────────────────────────────────────────
@@ -221,102 +226,158 @@ export function InvoiceValidator({
   if (!result) return null
 
   const { extracted, flags, summary } = result
-  const errors = flags.filter((f) => f.severity === 'error')
-  const warnings = flags.filter((f) => f.severity === 'warning')
-  const infos = flags.filter((f) => f.severity === 'info')
+  const orderedFlags = [
+    ...flags.filter((f) => f.severity === 'error'),
+    ...flags.filter((f) => f.severity === 'warning'),
+    ...flags.filter((f) => f.severity === 'info'),
+  ]
+  const isImg = file?.type.startsWith('image/') ?? false
+  const isPdf = file?.type === 'application/pdf'
+
+  const bannerTone = summary.passed
+    ? 'pass'
+    : summary.errors > 0
+      ? 'fail'
+      : 'warn'
 
   return (
-    <div dir={isRtl ? 'rtl' : 'ltr'} className="space-y-4">
-      {/* Pass / Fail badge */}
-      <div className={`flex items-center gap-3 px-5 py-4 rounded-2xl ${summary.passed ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
-        {summary.passed
-          ? <CheckCircle size={28} className="text-green-500 shrink-0" />
-          : <XCircle size={28} className="text-red-500 shrink-0" />}
-        <div className="flex-1">
-          <p className={`font-bold text-lg ${summary.passed ? 'text-green-700' : 'text-red-700'}`}>
-            {summary.passed
-              ? (isRtl ? 'اجتازت الفاتورة جميع الفحوصات' : 'Invoice Passed All Checks')
-              : (isRtl ? 'تحتوي الفاتورة على مشكلات تتطلب المراجعة' : 'Invoice Has Issues Requiring Attention')}
-          </p>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            {isRtl
-              ? `${summary.errors} خطأ · ${summary.warnings} تحذير · ${summary.infos} معلومة`
-              : `${summary.errors} error${summary.errors !== 1 ? 's' : ''} · ${summary.warnings} warning${summary.warnings !== 1 ? 's' : ''} · ${summary.infos} info`}
-          </p>
+    <div
+      dir={isRtl ? 'rtl' : 'ltr'}
+      className="grid grid-cols-1 lg:grid-cols-[5fr_6fr] gap-4 items-stretch"
+    >
+      {/* ── LEFT: invoice preview ── */}
+      <div className="rounded-2xl border border-border overflow-hidden flex flex-col bg-card">
+        <div className="px-4 py-2.5 border-b border-border flex items-center justify-between gap-2">
+          <span className="font-mono text-[10px] tracking-[0.14em] text-muted-foreground">
+            {isRtl ? 'الفاتورة' : 'INVOICE'}
+          </span>
+          {fileName && (
+            <span className="flex items-center gap-2 text-xs font-medium text-muted-foreground min-w-0">
+              <span className="w-6 h-7 rounded bg-muted border border-border flex items-center justify-center font-mono text-[8px] shrink-0">
+                {isPdf ? 'PDF' : isImg ? 'IMG' : 'DOC'}
+              </span>
+              <span className="truncate">{fileName}</span>
+            </span>
+          )}
         </div>
-        <div className="flex items-center gap-1.5">
-          <button
-            onClick={() => openReport(result, fileName, language)}
-            className="flex items-center gap-1.5 text-sm text-primary hover:opacity-80 transition-colors px-3 py-1.5 rounded-lg hover:bg-white/60"
-          >
-            <Download size={14} />
-            {isRtl ? 'تصدير PDF' : 'Export PDF'}
-          </button>
-          <button
-            onClick={reset}
-            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-lg hover:bg-white/60"
-          >
-            <RotateCcw size={14} />
-            {isRtl ? 'فاتورة جديدة' : 'New invoice'}
-          </button>
+        <div className="flex-1 min-h-[440px] max-h-[72vh] overflow-auto bg-muted p-4">
+          {fileUrl && isImg ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={fileUrl} alt={fileName ?? 'invoice'} className="max-w-full mx-auto rounded-lg shadow-sm" />
+          ) : fileUrl && isPdf ? (
+            <iframe src={fileUrl} title="invoice" className="w-full h-full min-h-[440px] rounded-lg bg-card" />
+          ) : (
+            <div className="bg-card rounded-xl border border-border p-4">
+              <p className="text-xs text-muted-foreground mb-3">
+                {isRtl ? 'معاينة المستند غير متاحة — عرض البيانات المستخرجة:' : 'Document preview unavailable — showing extracted data:'}
+              </p>
+              <ExtractedGrid data={extracted} language={language} />
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Extracted data grid */}
-      <div className="rounded-2xl border border-border overflow-hidden">
-        <div className="px-4 py-2.5 bg-muted border-b border-border flex items-center gap-2">
-          <FileText size={15} className="text-muted-foreground" />
-          <span className="text-sm font-semibold text-foreground">
-            {isRtl ? 'البيانات المستخرجة' : 'Extracted Data'}
+      {/* ── RIGHT: validation report ── */}
+      <div className="rounded-2xl border border-border overflow-hidden flex flex-col bg-card">
+        <div className="px-4 py-2.5 border-b border-border flex items-center justify-between gap-2">
+          <span className="font-mono text-[10px] tracking-[0.14em] text-muted-foreground">
+            {isRtl ? 'تقرير الفحص' : 'VALIDATION REPORT'}
+          </span>
+          <span
+            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
+              summary.passed
+                ? 'bg-accent text-accent-foreground'
+                : 'bg-warning-soft text-warning-foreground'
+            }`}
+          >
+            {summary.passed
+              ? isRtl ? 'مطابق' : 'Passed'
+              : isRtl
+                ? `${summary.errors + summary.warnings} ملاحظة`
+                : `${summary.errors + summary.warnings} issue${summary.errors + summary.warnings !== 1 ? 's' : ''}`}
           </span>
         </div>
-        <div className="p-4">
-          <ExtractedGrid data={extracted} language={language} />
+
+        <div className="flex-1 overflow-y-auto p-5 space-y-5">
+          {/* summary banner */}
+          <div
+            className={`flex items-center gap-3.5 rounded-2xl px-4 py-3.5 border ${
+              bannerTone === 'pass'
+                ? 'bg-accent border-primary/20'
+                : bannerTone === 'fail'
+                  ? 'bg-destructive/10 border-destructive/30'
+                  : 'bg-warning-soft border-warning/40'
+            }`}
+          >
+            <div
+              className={`shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-white ${
+                bannerTone === 'pass' ? 'bg-primary' : bannerTone === 'fail' ? 'bg-destructive' : 'bg-warning'
+              }`}
+            >
+              {bannerTone === 'pass' ? <CheckCircle size={22} /> : bannerTone === 'fail' ? <XCircle size={22} /> : <AlertTriangle size={20} />}
+            </div>
+            <div className="flex-1">
+              <p className="text-[15px] font-semibold text-foreground">
+                {summary.passed
+                  ? isRtl ? 'اجتازت الفاتورة جميع الفحوصات' : 'Passed all checks'
+                  : isRtl ? 'توجد ملاحظات تتطلب المراجعة' : 'Issues requiring attention'}
+              </p>
+              <p className="text-[13px] text-muted-foreground mt-0.5">
+                {isRtl
+                  ? `${summary.errors} خطأ · ${summary.warnings} تحذير · ${summary.infos} معلومة`
+                  : `${summary.errors} error${summary.errors !== 1 ? 's' : ''} · ${summary.warnings} warning${summary.warnings !== 1 ? 's' : ''} · ${summary.infos} info`}
+              </p>
+            </div>
+          </div>
+
+          {/* issues */}
+          {orderedFlags.length > 0 ? (
+            <div>
+              <div className="font-mono text-[10px] tracking-[0.14em] text-muted-foreground mb-3">
+                {isRtl ? `الملاحظات (${orderedFlags.length})` : `ISSUES (${orderedFlags.length})`}
+              </div>
+              <div className="space-y-2.5">
+                {orderedFlags.map((f, i) => (
+                  <IssueCard key={i} flag={f} language={language} />
+                ))}
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-primary">{isRtl ? 'لا توجد مشكلات.' : 'No issues found.'}</p>
+          )}
+
+          {/* extracted data */}
+          <div>
+            <div className="font-mono text-[10px] tracking-[0.14em] text-muted-foreground mb-3">
+              {isRtl ? 'البيانات المستخرجة' : 'EXTRACTED DATA'}
+            </div>
+            <ExtractedGrid data={extracted} language={language} />
+          </div>
+        </div>
+
+        {/* action bar */}
+        <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-border">
+          <span className="text-[13px] text-muted-foreground hidden sm:block">
+            {isRtl ? 'صدّر التقرير أو افحص فاتورة أخرى' : 'Export the report or check another invoice'}
+          </span>
+          <div className="flex gap-2 ms-auto">
+            <button
+              onClick={() => openReport(result, fileName, language)}
+              className="h-10 px-4 rounded-[10px] border border-border text-sm font-semibold flex items-center gap-1.5 hover:border-primary hover:text-primary transition-colors"
+            >
+              <Download size={14} />
+              {isRtl ? 'تصدير PDF' : 'Export PDF'}
+            </button>
+            <button
+              onClick={reset}
+              className="h-10 px-4 rounded-[10px] bg-primary text-primary-foreground text-sm font-semibold flex items-center gap-1.5 hover:brightness-95 transition"
+            >
+              <RotateCcw size={14} />
+              {isRtl ? 'فاتورة جديدة' : 'New invoice'}
+            </button>
+          </div>
         </div>
       </div>
-
-      {/* Flags by severity */}
-      {flags.length > 0 && (
-        <div className="rounded-2xl border border-border overflow-hidden">
-          <div className="px-4 py-2.5 bg-muted border-b border-border">
-            <span className="text-sm font-semibold text-foreground">
-              {isRtl ? 'نتائج الفحص' : 'Validation Results'}
-            </span>
-          </div>
-          <div className="p-4 space-y-4">
-            {errors.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-xs font-semibold text-red-600 uppercase tracking-wide">
-                  {isRtl ? `أخطاء (${errors.length})` : `Errors (${errors.length})`}
-                </p>
-                <div className="space-y-2 pl-1">
-                  {errors.map((f, i) => <FlagRow key={i} flag={f} language={language} />)}
-                </div>
-              </div>
-            )}
-            {warnings.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide">
-                  {isRtl ? `تحذيرات (${warnings.length})` : `Warnings (${warnings.length})`}
-                </p>
-                <div className="space-y-2 pl-1">
-                  {warnings.map((f, i) => <FlagRow key={i} flag={f} language={language} />)}
-                </div>
-              </div>
-            )}
-            {infos.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide">
-                  {isRtl ? `معلومات (${infos.length})` : `Info (${infos.length})`}
-                </p>
-                <div className="space-y-2 pl-1">
-                  {infos.map((f, i) => <FlagRow key={i} flag={f} language={language} />)}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   )
 }
