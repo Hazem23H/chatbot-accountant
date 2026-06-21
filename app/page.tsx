@@ -5,8 +5,10 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ShieldCheck, Percent, Calculator, FileCheck2, ArrowUpRight } from 'lucide-react'
 import { AppShell } from '@/components/layout/AppShell'
+import { WorkspaceSwitcher } from '@/components/layout/WorkspaceSwitcher'
 import { createClient } from '@/lib/supabase/client'
 import { listConversations, type ConversationSummary } from '@/lib/chat-history'
+import { useWorkspace } from '@/lib/use-workspace'
 import type { Language } from '@/types/chat'
 
 const t = {
@@ -60,6 +62,8 @@ export default function DashboardPage() {
   const [language, setLanguage] = useState<Language>('ar')
   const [ask, setAsk] = useState('')
   const [recent, setRecent] = useState<ConversationSummary[]>([])
+  const [isAuthed, setIsAuthed] = useState(false)
+  const { clientId, clients, selectWorkspace, refreshClients } = useWorkspace()
 
   const isRtl = language === 'ar'
   const tr = t[language]
@@ -73,9 +77,11 @@ export default function DashboardPage() {
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
-      if (data.user) listConversations().then((c) => setRecent(c.slice(0, 4)))
+      setIsAuthed(!!data.user)
+      if (data.user) listConversations(clientId).then((c) => setRecent(c.slice(0, 4)))
+      else setRecent([])
     })
-  }, [supabase])
+  }, [supabase, clientId])
 
   const toggleLanguage = useCallback(() => {
     setLanguage((prev) => {
@@ -103,9 +109,20 @@ export default function DashboardPage() {
     <AppShell active="home" language={language} onToggleLanguage={toggleLanguage}>
       <div className="flex-1 min-h-0 overflow-y-auto">
         {/* top bar */}
-        <div className="px-6 md:px-9 py-6 border-b border-border">
-          <div className="text-[22px] font-semibold leading-tight">{tr.greeting}</div>
-          <div className="text-[13px] text-muted-foreground mt-1">{tr.greetingSub}</div>
+        <div className="px-6 md:px-9 py-6 border-b border-border flex items-start justify-between gap-4">
+          <div>
+            <div className="text-[22px] font-semibold leading-tight">{tr.greeting}</div>
+            <div className="text-[13px] text-muted-foreground mt-1">{tr.greetingSub}</div>
+          </div>
+          {isAuthed && (
+            <WorkspaceSwitcher
+              language={language}
+              clientId={clientId}
+              clients={clients}
+              onSelect={selectWorkspace}
+              onCreated={refreshClients}
+            />
+          )}
         </div>
 
         <div className="px-6 md:px-9 py-8 pb-12">

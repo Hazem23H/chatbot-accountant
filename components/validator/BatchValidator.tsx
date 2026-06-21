@@ -29,10 +29,11 @@ interface BatchItem {
 interface BatchValidatorProps {
   language: 'ar' | 'en'
   isAuthenticated: boolean
+  clientId?: string | null
   onSaved?: () => void
 }
 
-export function BatchValidator({ language, isAuthenticated, onSaved }: BatchValidatorProps) {
+export function BatchValidator({ language, isAuthenticated, clientId = null, onSaved }: BatchValidatorProps) {
   const isRtl = language === 'ar'
   const [items, setItems] = useState<BatchItem[]>([])
   const [running, setRunning] = useState(false)
@@ -62,7 +63,7 @@ export function BatchValidator({ language, isAuthenticated, onSaved }: BatchVali
           const result = await validateInvoiceFile(item.file, language)
           update(item.id, { status: 'done', result })
           if (isAuthenticated) {
-            saveValidation(result, item.name).then((id) => {
+            saveValidation(result, item.name, clientId).then((id) => {
               if (id) onSaved?.()
             })
           }
@@ -75,7 +76,7 @@ export function BatchValidator({ language, isAuthenticated, onSaved }: BatchVali
       }
       setRunning(false)
     },
-    [language, isAuthenticated, onSaved]
+    [language, isAuthenticated, clientId, onSaved]
   )
 
   const handleDrop = useCallback(

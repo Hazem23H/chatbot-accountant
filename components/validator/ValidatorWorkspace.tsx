@@ -14,7 +14,13 @@ import {
 } from '@/lib/validation-history'
 import type { Language } from '@/types/chat'
 
-export function ValidatorWorkspace({ language }: { language: Language }) {
+export function ValidatorWorkspace({
+  language,
+  clientId = null,
+}: {
+  language: Language
+  clientId?: string | null
+}) {
   const [supabase] = useState(() => createClient())
   const [isAuthed, setIsAuthed] = useState(false)
   const [authResolved, setAuthResolved] = useState(false)
@@ -28,8 +34,8 @@ export function ValidatorWorkspace({ language }: { language: Language }) {
   const isRtl = language === 'ar'
 
   const refresh = useCallback(async () => {
-    setSaved(await listValidations())
-  }, [])
+    setSaved(await listValidations(clientId))
+  }, [clientId])
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -101,12 +107,18 @@ export function ValidatorWorkspace({ language }: { language: Language }) {
           key={validatorKey}
           language={language}
           isAuthenticated={isAuthed}
+          clientId={clientId}
           initialResult={viewing}
           initialFileName={viewingFileName}
           onSaved={refresh}
         />
       ) : (
-        <BatchValidator language={language} isAuthenticated={isAuthed} onSaved={refresh} />
+        <BatchValidator
+          language={language}
+          isAuthenticated={isAuthed}
+          clientId={clientId}
+          onSaved={refresh}
+        />
       )}
 
       {/* Saved validations (signed-in) or sign-in nudge (anonymous) */}

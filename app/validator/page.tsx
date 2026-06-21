@@ -3,18 +3,25 @@
 import { useState, useEffect, useCallback } from 'react'
 import { AlertCircle } from 'lucide-react'
 import { AppShell } from '@/components/layout/AppShell'
+import { WorkspaceSwitcher } from '@/components/layout/WorkspaceSwitcher'
 import { ValidatorWorkspace } from '@/components/validator/ValidatorWorkspace'
+import { createClient } from '@/lib/supabase/client'
+import { useWorkspace } from '@/lib/use-workspace'
 import type { Language } from '@/types/chat'
 
 export default function ValidatorPage() {
+  const [supabase] = useState(() => createClient())
   const [language, setLanguage] = useState<Language>('ar')
+  const [isAuthed, setIsAuthed] = useState(false)
+  const { clientId, clients, selectWorkspace, refreshClients } = useWorkspace()
   const isRtl = language === 'ar'
 
   useEffect(() => {
     const saved = localStorage.getItem('sa-lang') as Language | null
     if (saved === 'ar' || saved === 'en') setLanguage(saved)
     document.documentElement.dir = (saved ?? 'ar') === 'ar' ? 'rtl' : 'ltr'
-  }, [])
+    supabase.auth.getUser().then(({ data }) => setIsAuthed(!!data.user))
+  }, [supabase])
 
   const toggleLanguage = useCallback(() => {
     setLanguage((prev) => {
@@ -29,20 +36,31 @@ export default function ValidatorPage() {
     <AppShell active="tools" language={language} onToggleLanguage={toggleLanguage}>
       <div className="flex-1 min-h-0 overflow-y-auto">
         {/* top bar */}
-        <div className="px-6 md:px-9 py-5 border-b border-border">
-          <div className="text-[19px] font-semibold leading-tight">
-            {isRtl ? 'مدقّق الفواتير' : 'Invoice validator'}
+        <div className="px-6 md:px-9 py-5 border-b border-border flex items-start justify-between gap-4">
+          <div>
+            <div className="text-[19px] font-semibold leading-tight">
+              {isRtl ? 'مدقّق الفواتير' : 'Invoice validator'}
+            </div>
+            <div className="text-[13px] text-muted-foreground mt-0.5">
+              {isRtl
+                ? 'فحص حقول الفاتورة الإلكترونية وفق هيئة الزكاة والضريبة'
+                : 'Check ZATCA e-invoice fields and flag issues'}
+            </div>
           </div>
-          <div className="text-[13px] text-muted-foreground mt-0.5">
-            {isRtl
-              ? 'فحص حقول الفاتورة الإلكترونية وفق هيئة الزكاة والضريبة'
-              : 'Check ZATCA e-invoice fields and flag issues'}
-          </div>
+          {isAuthed && (
+            <WorkspaceSwitcher
+              language={language}
+              clientId={clientId}
+              clients={clients}
+              onSelect={selectWorkspace}
+              onCreated={refreshClients}
+            />
+          )}
         </div>
 
         <div className="px-6 md:px-9 py-7 pb-12">
           <div className="max-w-[760px] mx-auto space-y-6">
-            <ValidatorWorkspace language={language} />
+            <ValidatorWorkspace language={language} clientId={clientId} />
 
             <div className="flex items-start gap-2 bg-warning-soft border border-warning/40 rounded-xl px-4 py-3 text-sm text-warning-foreground">
               <AlertCircle size={15} className="shrink-0 mt-0.5 text-warning" />

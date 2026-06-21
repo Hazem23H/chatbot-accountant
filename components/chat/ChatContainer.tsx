@@ -13,6 +13,7 @@ interface ChatContainerProps {
   isAuthenticated: boolean
   initialConversationId: string | null
   initialQuery?: string
+  clientId?: string | null
   onConversationCreated: (id: string) => void
   onPersisted: () => void
   onLatestCitations?: (ids: string[]) => void
@@ -23,6 +24,7 @@ export function ChatContainer({
   isAuthenticated,
   initialConversationId,
   initialQuery,
+  clientId = null,
   onConversationCreated,
   onPersisted,
   onLatestCitations,
@@ -122,7 +124,8 @@ export function ChatContainer({
           if (!cid) {
             cid = await createConversation(
               userMessage.content || attachment?.name || 'New chat',
-              language
+              language,
+              clientId
             )
             if (cid) {
               setActiveConvId(cid)
@@ -165,6 +168,7 @@ export function ChatContainer({
       isLoading,
       isAuthenticated,
       activeConvId,
+      clientId,
       onConversationCreated,
       onPersisted,
     ]

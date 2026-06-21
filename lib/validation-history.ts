@@ -27,7 +27,8 @@ export interface SavedValidation extends ValidationResult {
 /** Persist a validation result for the current user. Returns its id or null. */
 export async function saveValidation(
   result: ValidationResult,
-  fileName: string | null
+  fileName: string | null,
+  clientId: string | null = null
 ): Promise<string | null> {
   const {
     data: { user },
@@ -44,6 +45,7 @@ export async function saveValidation(
       flags: result.flags,
       summary: result.summary,
       passed: result.summary.passed,
+      ...(clientId ? { client_id: clientId } : {}),
     })
     .select('id')
     .single()
@@ -52,13 +54,17 @@ export async function saveValidation(
   return data.id
 }
 
-export async function listValidations(): Promise<SavedValidation[]> {
-  const { data, error } = await supabase
+export async function listValidations(
+  clientId: string | null = null
+): Promise<SavedValidation[]> {
+  let query = supabase
     .from('invoice_validations')
     .select('id, file_name, language, extracted, flags, summary, created_at')
     .order('created_at', { ascending: false })
     .limit(50)
+  query = clientId ? query.eq('client_id', clientId) : query.is('client_id', null)
 
+  const { data, error } = await query
   if (error || !data) return []
   return data.map((v) => ({
     id: v.id,

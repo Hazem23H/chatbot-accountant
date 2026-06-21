@@ -21,6 +21,7 @@ import { validateInvoiceFile, ACCEPTED_TYPES, MAX_BYTES } from '@/lib/validate-c
 interface InvoiceValidatorProps {
   language?: 'ar' | 'en'
   isAuthenticated?: boolean
+  clientId?: string | null
   initialResult?: ValidationResult | null
   initialFileName?: string | null
   onValidationComplete?: (result: ValidationResult) => void
@@ -94,6 +95,7 @@ function ExtractedGrid({ data, language }: { data: ExtractedInvoice; language: s
 export function InvoiceValidator({
   language = 'ar',
   isAuthenticated = false,
+  clientId = null,
   initialResult = null,
   initialFileName = null,
   onValidationComplete,
@@ -125,7 +127,7 @@ export function InvoiceValidator({
         onValidationComplete?.(data)
         // Persist for signed-in users.
         if (isAuthenticated) {
-          saveValidation(data, file.name).then((id) => {
+          saveValidation(data, file.name, clientId).then((id) => {
             if (id) onSaved?.()
           })
         }
@@ -134,7 +136,7 @@ export function InvoiceValidator({
         setState('idle')
       }
     },
-    [language, isAuthenticated, onValidationComplete, onSaved]
+    [language, isAuthenticated, clientId, onValidationComplete, onSaved]
   )
 
   const handleDrop = useCallback(

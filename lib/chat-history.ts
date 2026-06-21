@@ -26,13 +26,17 @@ function lightAttachment(att?: Attachment): Partial<Attachment> | null {
   return { name, mimeType, size, kind }
 }
 
-export async function listConversations(): Promise<ConversationSummary[]> {
-  const { data, error } = await supabase
+export async function listConversations(
+  clientId: string | null = null
+): Promise<ConversationSummary[]> {
+  let query = supabase
     .from('conversations')
     .select('id, title, language, updated_at')
     .order('updated_at', { ascending: false })
     .limit(50)
+  query = clientId ? query.eq('client_id', clientId) : query.is('client_id', null)
 
+  const { data, error } = await query
   if (error || !data) return []
   return data.map((c) => ({
     id: c.id,
@@ -45,7 +49,8 @@ export async function listConversations(): Promise<ConversationSummary[]> {
 /** Creates a conversation owned by the current user. Returns its id or null. */
 export async function createConversation(
   title: string,
-  language: Language
+  language: Language,
+  clientId: string | null = null
 ): Promise<string | null> {
   const {
     data: { user },
@@ -55,7 +60,7 @@ export async function createConversation(
   const trimmed = title.trim().slice(0, 60) || 'New chat'
   const { data, error } = await supabase
     .from('conversations')
-    .insert({ user_id: user.id, title: trimmed, language })
+    .insert({ user_id: user.id, title: trimmed, language, ...(clientId ? { client_id: clientId } : {}) })
     .select('id')
     .single()
 

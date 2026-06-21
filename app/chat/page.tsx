@@ -4,10 +4,12 @@ import { Suspense, useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { BookOpen, ExternalLink, MessageSquare, Trash2, Plus } from 'lucide-react'
 import { AppShell } from '@/components/layout/AppShell'
+import { WorkspaceSwitcher } from '@/components/layout/WorkspaceSwitcher'
 import { ChatContainer } from '@/components/chat/ChatContainer'
 import { createClient } from '@/lib/supabase/client'
 import { listConversations, deleteConversation, type ConversationSummary } from '@/lib/chat-history'
 import { getCitations } from '@/lib/citations'
+import { useWorkspace } from '@/lib/use-workspace'
 import type { Language } from '@/types/chat'
 
 function ChatInner() {
@@ -18,6 +20,7 @@ function ChatInner() {
   const [supabase] = useState(() => createClient())
   const [language, setLanguage] = useState<Language>('ar')
   const [isAuthed, setIsAuthed] = useState(false)
+  const { clientId, clients, selectWorkspace, refreshClients } = useWorkspace()
 
   const [activeConversationId, setActiveConversationId] = useState<string | null>(initialC)
   const [sessionKey, setSessionKey] = useState(initialC ?? 'new-0')
@@ -32,9 +35,12 @@ function ChatInner() {
     document.documentElement.dir = (saved ?? 'ar') === 'ar' ? 'rtl' : 'ltr'
   }, [])
 
-  const refreshRecent = useCallback(async () => {
-    setRecent(await listConversations())
-  }, [])
+  const refreshRecent = useCallback(
+    async (id: string | null = clientId) => {
+      setRecent(await listConversations(id))
+    },
+    [clientId]
+  )
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -75,6 +81,16 @@ function ChatInner() {
     setActiveConversationId(id)
     refreshRecent()
   }, [refreshRecent])
+
+  // Switching workspace starts a fresh chat scoped to that workspace.
+  const handleSelectWorkspace = useCallback(
+    (id: string | null) => {
+      selectWorkspace(id)
+      handleNewChat()
+      refreshRecent(id)
+    },
+    [selectWorkspace, handleNewChat, refreshRecent]
+  )
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation()
@@ -138,12 +154,24 @@ function ChatInner() {
     >
       {/* conversation */}
       <div className="flex-1 min-w-0 flex flex-col">
+        {isAuthed && (
+          <div className="flex items-center justify-end px-4 md:px-6 py-2.5 border-b border-border">
+            <WorkspaceSwitcher
+              language={language}
+              clientId={clientId}
+              clients={clients}
+              onSelect={handleSelectWorkspace}
+              onCreated={refreshClients}
+            />
+          </div>
+        )}
         <ChatContainer
           key={sessionKey}
           language={language}
           isAuthenticated={isAuthed}
           initialConversationId={activeConversationId}
           initialQuery={activeConversationId ? undefined : initialQ}
+          clientId={clientId}
           onConversationCreated={handleConversationCreated}
           onPersisted={refreshRecent}
           onLatestCitations={setCitations}
