@@ -76,6 +76,8 @@ export async function POST(request: Request) {
     const formData = await request.formData()
     const file = formData.get('file') as File | null
     const language = (formData.get('language') as string) ?? 'ar'
+    // QR decoded client-side off the image (the model can't read barcodes).
+    const qrPayload = (formData.get('qrPayload') as string | null)?.trim() || null
 
     if (!file) {
       return Response.json({ error: 'No file provided' }, { status: 400 })
@@ -107,6 +109,13 @@ export async function POST(request: Request) {
       extracted = JSON.parse(jsonMatch[0]) as ExtractedInvoice
     } catch {
       return Response.json({ error: 'Extraction response was not valid JSON' }, { status: 422 })
+    }
+
+    // A client-scanned QR is ground truth — trust it over the model's guess so
+    // the cross-checks below run against the real payload.
+    if (qrPayload) {
+      extracted.qrCode = qrPayload
+      extracted.hasQrCode = true
     }
 
     // Step 2 — Run deterministic rules engine + QR cross-checks

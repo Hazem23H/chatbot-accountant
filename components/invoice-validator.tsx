@@ -20,6 +20,7 @@ import { runQrCrossChecks } from '@/lib/zatca-qr'
 import { saveValidation, type ValidationResult } from '@/lib/validation-history'
 import { openReport } from '@/lib/validation-report'
 import { validateInvoiceFile, ACCEPTED_TYPES, MAX_BYTES } from '@/lib/validate-client'
+import { scanQrFromFile } from '@/lib/qr-scan'
 
 interface InvoiceValidatorProps {
   language?: 'ar' | 'en'
@@ -156,14 +157,38 @@ function EditableGrid({
   draft,
   language,
   hasQr,
+  qrScanned,
+  qrMatched,
   onChange,
 }: {
   draft: Draft
   language: string
   hasQr: boolean
+  qrScanned: boolean
+  qrMatched: boolean
   onChange: (key: string, value: string) => void
 }) {
   const isAr = language === 'ar'
+
+  // QR cell content reflects whether we actually decoded the barcode and
+  // whether its payload matches the printed invoice.
+  let qrText: string
+  let qrClass = 'text-foreground'
+  let qrIcon: React.ReactNode = null
+  if (!hasQr) {
+    qrText = isAr ? 'غير موجود' : 'Not detected'
+  } else if (!qrScanned) {
+    qrText = isAr ? 'موجود' : 'Present'
+  } else if (qrMatched) {
+    qrText = isAr ? 'مُتحقَّق — يطابق الفاتورة' : 'Verified — matches invoice'
+    qrClass = 'text-primary'
+    qrIcon = <CheckCircle size={13} className="text-primary shrink-0" />
+  } else {
+    qrText = isAr ? 'ممسوح — لا يطابق' : 'Scanned — mismatch'
+    qrClass = 'text-warning'
+    qrIcon = <AlertTriangle size={13} className="text-warning shrink-0" />
+  }
+
   return (
     <div className="grid grid-cols-2 gap-2">
       {FIELD_DEFS.map(({ key, ar, en, numeric }) => (
@@ -185,8 +210,9 @@ function EditableGrid({
       {/* QR presence is read-only — it reflects the actual document. */}
       <div className="bg-muted rounded-lg px-3 py-2">
         <p className="text-xs text-muted-foreground">{isAr ? 'رمز QR' : 'QR Code'}</p>
-        <p className="text-sm font-medium text-foreground mt-0.5">
-          {hasQr ? (isAr ? 'موجود' : 'Present') : isAr ? 'غير موجود' : 'Not detected'}
+        <p className={`text-sm font-medium mt-0.5 flex items-center gap-1.5 ${qrClass}`}>
+          {qrIcon}
+          {qrText}
         </p>
       </div>
     </div>
@@ -280,7 +306,10 @@ export function InvoiceValidator({
       setFileName(file.name)
       setFile(file)
       try {
-        const data = await validateInvoiceFile(file, language)
+        // Read the QR off the image before validating so the API can cross-check
+        // the real payload against the printed values.
+        const qrPayload = await scanQrFromFile(file).catch(() => null)
+        const data = await validateInvoiceFile(file, language, qrPayload)
         setResult(data)
         setState('results')
         onValidationComplete?.(data)
@@ -391,6 +420,11 @@ export function InvoiceValidator({
     ...displayFlags.filter((f) => f.severity === 'info'),
   ]
   const hasQr = extracted.hasQrCode === true || !!extracted.qrCode?.trim()
+  // A non-empty qrCode payload means we actually decoded the barcode (the model
+  // can't), so we can say whether it cross-checked against the printed values.
+  const qrScanned = !!extracted.qrCode?.trim()
+  const qrMatched =
+    qrScanned && !displayFlags.some((f) => f.code.startsWith('QR_') && f.code !== 'QR_PHASE2_DETECTED')
   // The result object reflecting any inline edits — used for PDF export.
   const liveResult: ValidationResult = {
     extracted,
@@ -537,6 +571,8 @@ export function InvoiceValidator({
               draft={draft}
               language={language}
               hasQr={hasQr}
+              qrScanned={qrScanned}
+              qrMatched={qrMatched}
               onChange={handleFieldChange}
             />
           </div>

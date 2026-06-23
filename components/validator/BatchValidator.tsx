@@ -12,6 +12,7 @@ import {
   RotateCcw,
 } from 'lucide-react'
 import { validateInvoiceFile, ACCEPTED_TYPES, MAX_BYTES } from '@/lib/validate-client'
+import { scanQrFromFile } from '@/lib/qr-scan'
 import { saveValidation, type ValidationResult } from '@/lib/validation-history'
 import { openReport } from '@/lib/validation-report'
 
@@ -60,7 +61,8 @@ export function BatchValidator({ language, isAuthenticated, clientId = null, onS
       for (const item of newItems) {
         update(item.id, { status: 'running' })
         try {
-          const result = await validateInvoiceFile(item.file, language)
+          const qrPayload = await scanQrFromFile(item.file).catch(() => null)
+          const result = await validateInvoiceFile(item.file, language, qrPayload)
           update(item.id, { status: 'done', result })
           if (isAuthenticated) {
             saveValidation(result, item.name, clientId, item.file).then((id) => {

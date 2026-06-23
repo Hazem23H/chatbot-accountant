@@ -13,11 +13,13 @@ export const MAX_BYTES = 10 * 1024 * 1024
 /** Validate a single invoice file against the API. Throws on failure. */
 export async function validateInvoiceFile(
   file: File,
-  language: string
+  language: string,
+  qrPayload?: string | null
 ): Promise<ValidationResult> {
   const formData = new FormData()
   formData.append('file', file)
   formData.append('language', language)
+  if (qrPayload) formData.append('qrPayload', qrPayload)
 
   const res = await fetch('/api/validate-invoice', { method: 'POST', body: formData })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
