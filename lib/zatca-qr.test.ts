@@ -162,4 +162,24 @@ describe('runQrCrossChecks', () => {
     const flags = runQrCrossChecks(invoice, phase1Qr)
     expect(flags.map((f) => f.code)).not.toContain('QR_TOTAL_MISMATCH')
   })
+
+  it('passes the QR cross-check on the discounted Zen Spa invoice (post-discount totals)', () => {
+    // The QR carries the FINAL totals (after discount): total 1437.50, VAT 187.50.
+    const qr = buildQr([
+      [1, 'Zen Spa'],
+      [2, '237528375352875'],
+      [3, '2021-11-30T00:00:00Z'],
+      [4, '1437.50'],
+      [5, '187.50'],
+    ])
+    const invoice: ExtractedInvoice = {
+      sellerName: 'Zen Spa',
+      sellerVat: '237528375352875',
+      subtotal: 2500,
+      discountAmount: 1250,
+      vatAmount: 187.5,
+      total: 1437.5,
+    }
+    expect(runQrCrossChecks(invoice, qr)).toEqual([])
+  })
 })

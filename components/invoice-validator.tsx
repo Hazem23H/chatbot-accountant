@@ -86,7 +86,8 @@ function ExtractedGrid({ data, language }: { data: ExtractedInvoice; language: s
     ['UUID', 'UUID', data.uuid],
     ['تاريخ الفاتورة', 'Invoice Date', data.invoiceDate],
     ['نوع الفاتورة', 'Invoice Type', data.invoiceType],
-    ['الوعاء الضريبي', 'Subtotal (excl. VAT)', data.subtotal !== undefined ? `SAR ${data.subtotal.toFixed(2)}` : undefined],
+    ['المجموع قبل الخصم', 'Subtotal (excl. VAT)', data.subtotal !== undefined ? `SAR ${data.subtotal.toFixed(2)}` : undefined],
+    ['الخصم', 'Discount', data.discountAmount !== undefined ? `SAR ${data.discountAmount.toFixed(2)}` : undefined],
     ['مبلغ الضريبة', 'VAT Amount', data.vatAmount !== undefined ? `SAR ${data.vatAmount.toFixed(2)}` : undefined],
     ['نسبة الضريبة', 'VAT Rate', data.vatRate !== undefined ? `${data.vatRate}%` : undefined],
     ['الإجمالي', 'Total (incl. VAT)', data.total !== undefined ? `SAR ${data.total.toFixed(2)}` : undefined],
@@ -118,7 +119,8 @@ const FIELD_DEFS: { key: keyof ExtractedInvoice; ar: string; en: string; numeric
   { key: 'uuid', ar: 'UUID', en: 'UUID' },
   { key: 'invoiceDate', ar: 'تاريخ الفاتورة', en: 'Invoice Date' },
   { key: 'invoiceType', ar: 'نوع الفاتورة', en: 'Invoice Type' },
-  { key: 'subtotal', ar: 'الوعاء الضريبي', en: 'Subtotal (excl. VAT)', numeric: true },
+  { key: 'subtotal', ar: 'المجموع قبل الخصم', en: 'Subtotal (excl. VAT)', numeric: true },
+  { key: 'discountAmount', ar: 'الخصم', en: 'Discount', numeric: true },
   { key: 'vatAmount', ar: 'مبلغ الضريبة', en: 'VAT Amount', numeric: true },
   { key: 'vatRate', ar: 'نسبة الضريبة', en: 'VAT Rate', numeric: true },
   { key: 'total', ar: 'الإجمالي', en: 'Total (incl. VAT)', numeric: true },
@@ -275,8 +277,11 @@ export function InvoiceValidator({
   const displayFlags = useMemo<ValidationFlag[]>(() => {
     if (!result) return []
     if (!edited || !editedExtracted) return result.flags
+    // Phase is a property of the document (its QR), not of the editable fields,
+    // so derive it once from the server's result.
+    const isPhase2 = result.flags.some((f) => f.code === 'QR_PHASE2_DETECTED')
     const ruleFlags = [
-      ...runZatcaRules(editedExtracted),
+      ...runZatcaRules(editedExtracted, { isPhase2 }),
       ...runQrCrossChecks(editedExtracted, editedExtracted.qrCode),
     ].map((f) => ({ ...f, source: 'rule' as const }))
     const aiFlags = result.flags.filter(isAiFlag)

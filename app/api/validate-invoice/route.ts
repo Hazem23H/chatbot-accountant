@@ -15,9 +15,10 @@ const EXTRACTION_PROMPT = `Extract all invoice fields from this document and ret
   "buyerVat": "string",
   "invoiceNumber": "string",
   "uuid": "string",
-  "invoiceDate": "string (ISO 8601 if possible)",
+  "invoiceDate": "string (date only, YYYY-MM-DD, if possible)",
   "invoiceType": "B2B or B2C",
   "subtotal": number,
+  "discountAmount": number,
   "vatAmount": number,
   "vatRate": number (as percent e.g. 15),
   "total": number,
@@ -28,35 +29,50 @@ const EXTRACTION_PROMPT = `Extract all invoice fields from this document and ret
       "description": "string",
       "quantity": number,
       "unitPrice": number,
+      "discount": number,
       "lineTotal": number,
       "vatAmount": number,
       "vatRate": number
     }
   ]
 }
+
+IMPORTANT extraction rules:
+- "subtotal" is the sum of line amounts BEFORE any discount (excl. VAT).
+- "discountAmount" is the document-level discount/allowance total. Look hard for a discount row — labels include "Discount", "Total Discount", "Allowance", "خصم", "الخصم", "قيمة الخصم". If the invoice shows a discount, you MUST capture it; never silently fold it into other numbers.
+- Per line, "discount" is that line's discount and "lineTotal" is the amount AFTER its discount.
+- Preserve Arabic text exactly as written — do not transliterate, translate, or reorder characters. Copy field values verbatim.
+- Do NOT guess "invoiceType"; only report what the document states.
+
 Return ONLY the JSON — no markdown, no explanation.`
 
-const SEMANTIC_PROMPT_AR = `بناءً على الفاتورة المستخرجة والأعلام التي اكتشفها محرك القواعد، هل هناك مشكلات امتثال إضافية لا تغطيها الفحوصات الرياضية؟ على سبيل المثال:
-- عدم تطابق اسم البائع مع رقم التسجيل الضريبي
-- تفاصيل غير معقولة في الوصف
-- مؤشرات على فاتورة اختبار أو عينة
-- تحقق من أن نوع الفاتورة (B2B/B2C) يتطابق مع وجود رقم ضريبة المشتري
-- وصف أي أحكام خاصة (صفر الضريبة، المعفى) إن وجدت
+const SEMANTIC_PROMPT_AR = `بناءً على الفاتورة المستخرجة والأعلام التي اكتشفها محرك القواعد، قدّم ملاحظات إرشادية (معلوماتية فقط) قد تساعد المستخدم. اقتصر على حقائق امتثال يمكن التحقق منها فقط، مثل:
+- وجود معاملة خاصة معلنة (صفر الضريبة، معفى) وما يترتب عليها
+- حقل إلزامي يبدو ناقصًا ولم يلتقطه محرك القواعد
 
-أعد إجابتك كمصفوفة JSON من الأعلام بالشكل التالي (مصفوفة فارغة إن لم توجد مشكلات):
-[{ "code": "SEMANTIC_XXX", "severity": "warning|info", "message": "...", "messageAr": "..." }]
-لا تُعيد الأعلام التي وجدها محرك القواعد بالفعل.`
+قواعد صارمة:
+- لا تُصدر أي ملاحظة بمستوى "error" أو "warning" إطلاقًا — المعلومات فقط.
+- لا تُخمّن ولا تخترع. لا تعلّق على ما إذا كانت الفاتورة "تجريبية" أو "عيّنة".
+- لا تربط اسم البائع برقم التسجيل الضريبي (لا توجد علاقة بينهما).
+- وجود نص عربي وإنجليزي معًا أمر طبيعي ومطلوب — لا تعتبره مشكلة.
+- لا تُعد أي ملاحظة وجدها محرك القواعد بالفعل.
 
-const SEMANTIC_PROMPT_EN = `Given the extracted invoice and flags already caught by the rules engine, are there additional compliance issues not covered by math checks? For example:
-- Seller name inconsistent with VAT registration number format
-- Unreasonable description details
-- Signs this is a test or sample invoice
-- Verify the invoice type (B2B/B2C) matches presence/absence of buyer VAT
-- Note any special treatment (zero-rated, exempt) if applicable
+أعد إجابتك كمصفوفة JSON بالشكل التالي (مصفوفة فارغة إن لم توجد ملاحظات):
+[{ "code": "SEMANTIC_XXX", "severity": "info", "message": "...", "messageAr": "..." }]`
 
-Return your answer as a JSON array of flags in this format (empty array if no issues):
-[{ "code": "SEMANTIC_XXX", "severity": "warning|info", "message": "...", "messageAr": "..." }]
-Do not repeat flags already produced by the rules engine.`
+const SEMANTIC_PROMPT_EN = `Given the extracted invoice and the flags already produced by the rules engine, provide guidance notes (informational only) that may help the user. Restrict yourself to verifiable compliance facts, e.g.:
+- A declared special treatment (zero-rated, exempt) and its implication
+- A mandatory field that appears absent and was not already flagged by the rules engine
+
+Strict rules:
+- Never emit a finding at "error" or "warning" severity — info only.
+- Do not guess or fabricate. Do NOT comment on whether the invoice is a "test" or "sample".
+- Do NOT relate the seller name to the VAT registration number (they are unrelated).
+- Mixed Arabic + English content is normal and required — never treat it as an issue.
+- Do not repeat any finding the rules engine already produced.
+
+Return a JSON array in this format (empty array if no notes):
+[{ "code": "SEMANTIC_XXX", "severity": "info", "message": "...", "messageAr": "..." }]`
 
 function buildSummary(flags: ValidationFlag[]) {
   const errors = flags.filter((f) => f.severity === 'error').length
@@ -118,9 +134,12 @@ export async function POST(request: Request) {
       extracted.hasQrCode = true
     }
 
-    // Step 2 — Run deterministic rules engine + QR cross-checks
-    const ruleFlags = runZatcaRules(extracted)
+    // Step 2 — Run deterministic rules engine + QR cross-checks.
+    // QR runs first so we can detect Phase 2 (cryptographic stamp present) and
+    // gate Phase-2-only rules (e.g. UUID) accordingly.
     const qrFlags = runQrCrossChecks(extracted, extracted.qrCode)
+    const isPhase2 = qrFlags.some((f) => f.code === 'QR_PHASE2_DETECTED')
+    const ruleFlags = runZatcaRules(extracted, { isPhase2 })
     const deterministicFlags: ValidationFlag[] = [...ruleFlags, ...qrFlags].map((f) => ({
       ...f,
       source: 'rule',
@@ -140,7 +159,13 @@ export async function POST(request: Request) {
       const arrayMatch = semanticText.match(/\[[\s\S]*\]/)
       if (arrayMatch) {
         const parsed = JSON.parse(arrayMatch[0]) as ValidationFlag[]
-        semanticFlags = parsed.map((f) => ({ ...f, source: 'ai' as const }))
+        const existing = new Set(deterministicFlags.map((f) => f.code))
+        semanticFlags = parsed
+          // Drop anything restating a deterministic finding.
+          .filter((f) => !existing.has(f.code))
+          // Hard cap: the LLM pass may only ever emit info. Deterministic rules
+          // own error/warning — this is what keeps the trustworthy layer trustworthy.
+          .map((f) => ({ ...f, severity: 'info' as const, source: 'ai' as const }))
       }
     } catch {
       // Semantic pass is best-effort — don't fail the whole request

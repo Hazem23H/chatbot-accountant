@@ -23,7 +23,8 @@ export interface InvoiceLine {
   description?: string
   quantity?: number
   unitPrice?: number
-  lineTotal?: number
+  discount?: number        // line-level discount/allowance
+  lineTotal?: number       // net of discount
   vatAmount?: number
   vatRate?: number
 }
@@ -41,7 +42,8 @@ export interface ExtractedInvoice {
   invoiceDate?: string      // expected ISO 8601: YYYY-MM-DD
   invoiceType?: 'B2B' | 'B2C' | string
   // Amounts
-  subtotal?: number         // total excl. VAT
+  subtotal?: number         // sum of line amounts, BEFORE discount, excl. VAT
+  discountAmount?: number   // document-level discount/allowance total
   vatAmount?: number
   vatRate?: number          // as percentage e.g. 15
   total?: number            // total incl. VAT
@@ -56,8 +58,20 @@ function near(a: number, b: number): boolean {
   return Math.abs(a - b) <= ROUNDING_TOLERANCE
 }
 
-export function runZatcaRules(invoice: ExtractedInvoice): ValidationFlag[] {
+export interface RuleOptions {
+  /** True only when the invoice is positively identified as Phase 2 (e.g. the
+   *  QR carries cryptographic stamp fields). Gates Phase-2-only rules like UUID. */
+  isPhase2?: boolean
+}
+
+export function runZatcaRules(invoice: ExtractedInvoice, options: RuleOptions = {}): ValidationFlag[] {
   const flags: ValidationFlag[] = []
+  const { isPhase2 = false } = options
+
+  // Derive the invoice regime deterministically — never trust an LLM-guessed
+  // invoiceType. An invoice is B2B/standard only when a buyer VAT number is
+  // actually present; otherwise treat it as simplified (B2C).
+  const isB2B = !!invoice.buyerVat?.trim()
 
   // SELLER_NAME_MISSING
   if (!invoice.sellerName?.trim()) {
@@ -87,10 +101,7 @@ export function runZatcaRules(invoice: ExtractedInvoice): ValidationFlag[] {
     })
   }
 
-  // BUYER_NAME_MISSING (error only for B2B)
-  const isB2B =
-    invoice.invoiceType === 'B2B' ||
-    (invoice.buyerVat && invoice.buyerVat.trim().length > 0)
+  // BUYER_NAME_MISSING (error only for B2B / standard invoices)
   if (!invoice.buyerName?.trim() && isB2B) {
     flags.push({
       code: 'BUYER_NAME_MISSING',
@@ -120,14 +131,17 @@ export function runZatcaRules(invoice: ExtractedInvoice): ValidationFlag[] {
     })
   }
 
-  // UUID_MISSING
+  // UUID — Phase 2 only. A missing UUID is an error solely on Phase 2 invoices;
+  // on Phase 1 (simplified, image+QR) it is not required, so don't flag it.
   if (!invoice.uuid?.trim()) {
-    flags.push({
-      code: 'UUID_MISSING',
-      severity: 'error',
-      message: 'UUID is missing — required for Phase 2 e-invoicing (ZATCA)',
-      messageAr: 'المعرف الفريد UUID مفقود — مطلوب للمرحلة الثانية من الفوترة الإلكترونية',
-    })
+    if (isPhase2) {
+      flags.push({
+        code: 'UUID_MISSING',
+        severity: 'error',
+        message: 'UUID is missing — required for Phase 2 e-invoicing (ZATCA)',
+        messageAr: 'المعرف الفريد UUID مفقود — مطلوب للمرحلة الثانية من الفوترة الإلكترونية',
+      })
+    }
   } else if (!UUID_REGEX.test(invoice.uuid.trim())) {
     // UUID_INVALID
     flags.push({
@@ -147,14 +161,27 @@ export function runZatcaRules(invoice: ExtractedInvoice): ValidationFlag[] {
       messageAr: 'تاريخ الفاتورة مفقود',
     })
   } else {
-    // DATE_FORMAT_INVALID — warn if not ISO 8601 (YYYY-MM-DD)
-    const isoDateRegex = /^\d{4}-\d{2}-\d{2}$/
-    if (!isoDateRegex.test(invoice.invoiceDate.trim())) {
+    const date = invoice.invoiceDate.trim()
+    const dateOnly = /^\d{4}-\d{2}-\d{2}$/
+    // A full ISO 8601 date-time (with optional time/offset), e.g. 2021-11-30T00:00:00Z.
+    const isoDateTime = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2})?(\.\d+)?(Z|[+-]\d{2}:?\d{2})?$/
+    if (dateOnly.test(date)) {
+      // Correct UBL IssueDate profile — no flag.
+    } else if (isoDateTime.test(date)) {
+      // DATE_HAS_TIME — valid ISO 8601, but UBL IssueDate expects a date-only value.
+      flags.push({
+        code: 'DATE_HAS_TIME',
+        severity: 'info',
+        message: `Issue date "${date}" includes a time component — ZATCA's UBL IssueDate field expects a date-only value (YYYY-MM-DD); strip the time part`,
+        messageAr: `يتضمّن تاريخ الإصدار "${date}" مكوّن الوقت — يتوقّع حقل IssueDate في UBL لدى زاتكا تاريخًا فقط (YYYY-MM-DD)؛ يُحذف جزء الوقت`,
+      })
+    } else {
+      // DATE_FORMAT_INVALID — not a recognizable date at all.
       flags.push({
         code: 'DATE_FORMAT_INVALID',
         severity: 'warning',
-        message: `Invoice date "${invoice.invoiceDate}" is not in ISO 8601 format (YYYY-MM-DD) — ZATCA prefers ISO 8601`,
-        messageAr: `تاريخ الفاتورة "${invoice.invoiceDate}" ليس بتنسيق ISO 8601 (YYYY-MM-DD) — تفضّل زاتكا هذا التنسيق`,
+        message: `Invoice date "${date}" is not a recognized date format — ZATCA expects YYYY-MM-DD`,
+        messageAr: `تاريخ الفاتورة "${date}" ليس بتنسيق تاريخ معروف — يتوقّع زاتكا التنسيق YYYY-MM-DD`,
       })
     }
   }
@@ -171,25 +198,39 @@ export function runZatcaRules(invoice: ExtractedInvoice): ValidationFlag[] {
     }
   }
 
-  // VAT_MATH_ERROR — vatAmount should equal subtotal × 15%
+  // The taxable base is the line subtotal net of any document-level discount.
+  // Dropping the discount here is what previously produced false VAT/total errors.
+  const discount = invoice.discountAmount ?? 0
+  const rateFraction = (invoice.vatRate ?? 15) / 100
+
+  // VAT_MATH_ERROR — vatAmount should equal (subtotal − discount) × rate
   if (
     invoice.subtotal !== undefined &&
     invoice.vatAmount !== undefined &&
     invoice.subtotal !== null &&
     invoice.vatAmount !== null
   ) {
-    const expectedVat = invoice.subtotal * 0.15
+    const taxableBase = invoice.subtotal - discount
+    const expectedVat = taxableBase * rateFraction
     if (!near(invoice.vatAmount, expectedVat)) {
+      const basis =
+        discount > 0
+          ? `(subtotal ${invoice.subtotal.toFixed(2)} − discount ${discount.toFixed(2)}) × ${(rateFraction * 100).toFixed(0)}%`
+          : `subtotal × ${(rateFraction * 100).toFixed(0)}%`
+      const basisAr =
+        discount > 0
+          ? `(الوعاء ${invoice.subtotal.toFixed(2)} − الخصم ${discount.toFixed(2)}) × ${(rateFraction * 100).toFixed(0)}%`
+          : `الوعاء الضريبي × ${(rateFraction * 100).toFixed(0)}%`
       flags.push({
         code: 'VAT_MATH_ERROR',
         severity: 'error',
-        message: `VAT amount (${invoice.vatAmount.toFixed(2)}) does not equal subtotal × 15% (expected ${expectedVat.toFixed(2)})`,
-        messageAr: `مبلغ الضريبة (${invoice.vatAmount.toFixed(2)}) لا يساوي الوعاء الضريبي × 15% (المتوقع ${expectedVat.toFixed(2)})`,
+        message: `VAT amount (${invoice.vatAmount.toFixed(2)}) does not equal ${basis} (expected ${expectedVat.toFixed(2)})`,
+        messageAr: `مبلغ الضريبة (${invoice.vatAmount.toFixed(2)}) لا يساوي ${basisAr} (المتوقع ${expectedVat.toFixed(2)})`,
       })
     }
   }
 
-  // TOTAL_MATH_ERROR — total should equal subtotal + vatAmount
+  // TOTAL_MATH_ERROR — total should equal (subtotal − discount) + vatAmount
   if (
     invoice.subtotal !== undefined &&
     invoice.vatAmount !== undefined &&
@@ -198,13 +239,15 @@ export function runZatcaRules(invoice: ExtractedInvoice): ValidationFlag[] {
     invoice.vatAmount !== null &&
     invoice.total !== null
   ) {
-    const expectedTotal = invoice.subtotal + invoice.vatAmount
+    const expectedTotal = invoice.subtotal - discount + invoice.vatAmount
     if (!near(invoice.total, expectedTotal)) {
+      const basis = discount > 0 ? 'subtotal − discount + VAT' : 'subtotal + VAT'
+      const basisAr = discount > 0 ? 'الوعاء − الخصم + الضريبة' : 'الوعاء الضريبي + الضريبة'
       flags.push({
         code: 'TOTAL_MATH_ERROR',
         severity: 'error',
-        message: `Total (${invoice.total.toFixed(2)}) does not equal subtotal + VAT (expected ${expectedTotal.toFixed(2)})`,
-        messageAr: `الإجمالي (${invoice.total.toFixed(2)}) لا يساوي الوعاء الضريبي + الضريبة (المتوقع ${expectedTotal.toFixed(2)})`,
+        message: `Total (${invoice.total.toFixed(2)}) does not equal ${basis} (expected ${expectedTotal.toFixed(2)})`,
+        messageAr: `الإجمالي (${invoice.total.toFixed(2)}) لا يساوي ${basisAr} (المتوقع ${expectedTotal.toFixed(2)})`,
       })
     }
   }
@@ -247,19 +290,22 @@ export function runZatcaRules(invoice: ExtractedInvoice): ValidationFlag[] {
     invoice.lines.forEach((line, idx) => {
       const lineNum = idx + 1
 
-      // LINE_TOTAL_MISMATCH
+      // LINE_TOTAL_MISMATCH — net line total = qty × unit price − line discount
       if (
         line.quantity !== undefined &&
         line.unitPrice !== undefined &&
         line.lineTotal !== undefined
       ) {
-        const expected = line.quantity * line.unitPrice
+        const lineDiscount = line.discount ?? 0
+        const expected = line.quantity * line.unitPrice - lineDiscount
         if (!near(line.lineTotal, expected)) {
+          const basis =
+            lineDiscount > 0 ? 'qty × unit price − discount' : 'qty × unit price'
           flags.push({
             code: 'LINE_TOTAL_MISMATCH',
             severity: 'error',
-            message: `Line ${lineNum}: total (${line.lineTotal.toFixed(2)}) ≠ qty × unit price (${expected.toFixed(2)})`,
-            messageAr: `السطر ${lineNum}: الإجمالي (${line.lineTotal.toFixed(2)}) ≠ الكمية × سعر الوحدة (${expected.toFixed(2)})`,
+            message: `Line ${lineNum}: total (${line.lineTotal.toFixed(2)}) ≠ ${basis} (${expected.toFixed(2)})`,
+            messageAr: `السطر ${lineNum}: الإجمالي (${line.lineTotal.toFixed(2)}) ≠ ${lineDiscount > 0 ? 'الكمية × سعر الوحدة − الخصم' : 'الكمية × سعر الوحدة'} (${expected.toFixed(2)})`,
           })
         }
       }
