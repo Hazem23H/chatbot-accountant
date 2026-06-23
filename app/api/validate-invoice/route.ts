@@ -112,7 +112,10 @@ export async function POST(request: Request) {
     // Step 2 — Run deterministic rules engine + QR cross-checks
     const ruleFlags = runZatcaRules(extracted)
     const qrFlags = runQrCrossChecks(extracted, extracted.qrCode)
-    const deterministicFlags = [...ruleFlags, ...qrFlags]
+    const deterministicFlags: ValidationFlag[] = [...ruleFlags, ...qrFlags].map((f) => ({
+      ...f,
+      source: 'rule',
+    }))
 
     // Step 3 — Second AI pass for semantic issues not caught by rules
     const existingCodes = deterministicFlags.map((f) => f.code).join(', ')
@@ -127,7 +130,8 @@ export async function POST(request: Request) {
       const semanticText = semanticResult.response.text()
       const arrayMatch = semanticText.match(/\[[\s\S]*\]/)
       if (arrayMatch) {
-        semanticFlags = JSON.parse(arrayMatch[0]) as ValidationFlag[]
+        const parsed = JSON.parse(arrayMatch[0]) as ValidationFlag[]
+        semanticFlags = parsed.map((f) => ({ ...f, source: 'ai' as const }))
       }
     } catch {
       // Semantic pass is best-effort — don't fail the whole request

@@ -3,11 +3,20 @@ const SAUDI_VAT_REGEX = /^3\d{13}3$/
 // UUID v4 pattern
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
+export type FlagSource = 'rule' | 'ai'
+
 export interface ValidationFlag {
   code: string
   severity: 'error' | 'warning' | 'info'
   message: string
   messageAr: string
+  /** 'rule' = deterministic checks (recomputed locally on edit); 'ai' = semantic pass. */
+  source?: FlagSource
+}
+
+/** True for flags produced by the AI semantic pass (vs. the deterministic engine). */
+export function isAiFlag(flag: ValidationFlag): boolean {
+  return flag.source === 'ai' || flag.code.startsWith('SEMANTIC')
 }
 
 export interface InvoiceLine {

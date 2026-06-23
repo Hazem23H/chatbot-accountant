@@ -12,8 +12,11 @@ import {
   Loader2,
   RotateCcw,
   Download,
+  Sparkles,
+  Pencil,
 } from 'lucide-react'
-import type { ExtractedInvoice, ValidationFlag } from '@/lib/zatca-rules'
+import { runZatcaRules, isAiFlag, type ExtractedInvoice, type ValidationFlag } from '@/lib/zatca-rules'
+import { runQrCrossChecks } from '@/lib/zatca-qr'
 import { saveValidation, type ValidationResult } from '@/lib/validation-history'
 import { openReport } from '@/lib/validation-report'
 import { validateInvoiceFile, ACCEPTED_TYPES, MAX_BYTES } from '@/lib/validate-client'
@@ -48,6 +51,7 @@ function formatBytes(b: number) {
 function IssueCard({ flag, language }: { flag: ValidationFlag; language: string }) {
   const isAr = language === 'ar'
   const msg = isAr ? flag.messageAr : flag.message
+  const ai = isAiFlag(flag)
 
   const tone =
     flag.severity === 'error'
@@ -59,7 +63,13 @@ function IssueCard({ flag, language }: { flag: ValidationFlag; language: string 
   return (
     <div className={`border border-border border-s-[3px] ${tone.border} rounded-xl px-3.5 py-3 flex items-start gap-2.5`}>
       <span className="shrink-0 mt-0.5">{tone.icon}</span>
-      <span className="text-sm leading-relaxed text-foreground">{msg}</span>
+      <span className="text-sm leading-relaxed text-foreground flex-1">{msg}</span>
+      {ai && (
+        <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-muted text-muted-foreground text-[10px] font-medium px-1.5 py-0.5 mt-0.5">
+          <Sparkles size={10} />
+          {isAr ? 'تحليل ذكي' : 'AI'}
+        </span>
+      )}
     </div>
   )
 }
@@ -96,6 +106,93 @@ function ExtractedGrid({ data, language }: { data: ExtractedInvoice; language: s
   )
 }
 
+// Editable subset of the extracted fields (text + numeric). QR/lines are derived
+// from the file and stay read-only.
+const FIELD_DEFS: { key: keyof ExtractedInvoice; ar: string; en: string; numeric?: boolean }[] = [
+  { key: 'sellerName', ar: 'البائع', en: 'Seller' },
+  { key: 'sellerVat', ar: 'رقم ضريبة البائع', en: 'Seller VAT' },
+  { key: 'buyerName', ar: 'المشتري', en: 'Buyer' },
+  { key: 'buyerVat', ar: 'رقم ضريبة المشتري', en: 'Buyer VAT' },
+  { key: 'invoiceNumber', ar: 'رقم الفاتورة', en: 'Invoice No.' },
+  { key: 'uuid', ar: 'UUID', en: 'UUID' },
+  { key: 'invoiceDate', ar: 'تاريخ الفاتورة', en: 'Invoice Date' },
+  { key: 'invoiceType', ar: 'نوع الفاتورة', en: 'Invoice Type' },
+  { key: 'subtotal', ar: 'الوعاء الضريبي', en: 'Subtotal (excl. VAT)', numeric: true },
+  { key: 'vatAmount', ar: 'مبلغ الضريبة', en: 'VAT Amount', numeric: true },
+  { key: 'vatRate', ar: 'نسبة الضريبة', en: 'VAT Rate', numeric: true },
+  { key: 'total', ar: 'الإجمالي', en: 'Total (incl. VAT)', numeric: true },
+]
+
+type Draft = Record<string, string>
+
+function draftFromInvoice(data: ExtractedInvoice): Draft {
+  const d: Draft = {}
+  for (const { key } of FIELD_DEFS) {
+    const v = data[key]
+    d[key] = v === undefined || v === null ? '' : String(v)
+  }
+  return d
+}
+
+/** Merge the edited draft back onto the original invoice (preserving lines/QR). */
+function invoiceFromDraft(base: ExtractedInvoice, draft: Draft): ExtractedInvoice {
+  const out: ExtractedInvoice = { ...base }
+  for (const { key, numeric } of FIELD_DEFS) {
+    const s = (draft[key] ?? '').trim()
+    if (s === '') {
+      delete out[key]
+    } else if (numeric) {
+      const n = parseFloat(s)
+      if (Number.isFinite(n)) (out[key] as number) = n
+      else delete out[key]
+    } else {
+      ;(out[key] as string) = s
+    }
+  }
+  return out
+}
+
+function EditableGrid({
+  draft,
+  language,
+  hasQr,
+  onChange,
+}: {
+  draft: Draft
+  language: string
+  hasQr: boolean
+  onChange: (key: string, value: string) => void
+}) {
+  const isAr = language === 'ar'
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      {FIELD_DEFS.map(({ key, ar, en, numeric }) => (
+        <label
+          key={key}
+          className="bg-muted rounded-lg px-3 py-2 block cursor-text focus-within:ring-2 focus-within:ring-ring/40 transition-shadow"
+        >
+          <span className="text-xs text-muted-foreground">{isAr ? ar : en}</span>
+          <input
+            value={draft[key] ?? ''}
+            inputMode={numeric ? 'decimal' : undefined}
+            onChange={(e) => onChange(key, e.target.value)}
+            placeholder="—"
+            dir={numeric ? 'ltr' : undefined}
+            className="w-full bg-transparent text-sm font-medium text-foreground outline-none mt-0.5 placeholder:text-muted-foreground/50"
+          />
+        </label>
+      ))}
+      {/* QR presence is read-only — it reflects the actual document. */}
+      <div className="bg-muted rounded-lg px-3 py-2">
+        <p className="text-xs text-muted-foreground">{isAr ? 'رمز QR' : 'QR Code'}</p>
+        <p className="text-sm font-medium text-foreground mt-0.5">
+          {hasQr ? (isAr ? 'موجود' : 'Present') : isAr ? 'غير موجود' : 'Not detected'}
+        </p>
+      </div>
+    </div>
+  )
+}
+
 export function InvoiceValidator({
   language = 'ar',
   isAuthenticated = false,
@@ -115,6 +212,13 @@ export function InvoiceValidator({
   const [error, setError] = useState('')
   const [dragOver, setDragOver] = useState(false)
 
+  // Editable extracted fields. `draft` holds raw strings so typing decimals works;
+  // `edited` flips on once the user changes anything.
+  const [draft, setDraft] = useState<Draft>(() =>
+    initialResult ? draftFromInvoice(initialResult.extracted) : {}
+  )
+  const [edited, setEdited] = useState(false)
+
   const isRtl = language === 'ar'
 
   // Object URL for the invoice preview pane; revoked when the file changes.
@@ -124,6 +228,46 @@ export function InvoiceValidator({
       if (fileUrl) URL.revokeObjectURL(fileUrl)
     }
   }, [fileUrl])
+
+  // Reset the editable draft whenever a fresh result loads (new validation or
+  // reopened saved one).
+  useEffect(() => {
+    if (result) {
+      setDraft(draftFromInvoice(result.extracted))
+      setEdited(false)
+    }
+  }, [result])
+
+  // The invoice as currently edited, and the locally-recomputed deterministic
+  // flags. Until the user edits, we trust the server's flags verbatim (they were
+  // produced by these same functions plus the AI pass).
+  const editedExtracted = useMemo(
+    () => (result ? invoiceFromDraft(result.extracted, draft) : null),
+    [result, draft]
+  )
+
+  const displayFlags = useMemo<ValidationFlag[]>(() => {
+    if (!result) return []
+    if (!edited || !editedExtracted) return result.flags
+    const ruleFlags = [
+      ...runZatcaRules(editedExtracted),
+      ...runQrCrossChecks(editedExtracted, editedExtracted.qrCode),
+    ].map((f) => ({ ...f, source: 'rule' as const }))
+    const aiFlags = result.flags.filter(isAiFlag)
+    return [...ruleFlags, ...aiFlags]
+  }, [result, edited, editedExtracted])
+
+  const liveSummary = useMemo(() => {
+    const errors = displayFlags.filter((f) => f.severity === 'error').length
+    const warnings = displayFlags.filter((f) => f.severity === 'warning').length
+    const infos = displayFlags.filter((f) => f.severity === 'info').length
+    return { total: displayFlags.length, errors, warnings, infos, passed: errors === 0 }
+  }, [displayFlags])
+
+  const handleFieldChange = useCallback((key: string, value: string) => {
+    setDraft((prev) => ({ ...prev, [key]: value }))
+    setEdited(true)
+  }, [])
 
   const validate = useCallback(
     async (file: File) => {
@@ -179,6 +323,8 @@ export function InvoiceValidator({
     setError('')
     setFile(null)
     setFileName(null)
+    setDraft({})
+    setEdited(false)
   }
 
   // ── Idle (drag-drop upload zone) ──────────────────────────────────────────
@@ -235,14 +381,23 @@ export function InvoiceValidator({
   }
 
   // ── Results ───────────────────────────────────────────────────────────────
-  if (!result) return null
+  if (!result || !editedExtracted) return null
 
-  const { extracted, flags, summary } = result
+  const extracted = editedExtracted
+  const summary = liveSummary
   const orderedFlags = [
-    ...flags.filter((f) => f.severity === 'error'),
-    ...flags.filter((f) => f.severity === 'warning'),
-    ...flags.filter((f) => f.severity === 'info'),
+    ...displayFlags.filter((f) => f.severity === 'error'),
+    ...displayFlags.filter((f) => f.severity === 'warning'),
+    ...displayFlags.filter((f) => f.severity === 'info'),
   ]
+  const hasQr = extracted.hasQrCode === true || !!extracted.qrCode?.trim()
+  // The result object reflecting any inline edits — used for PDF export.
+  const liveResult: ValidationResult = {
+    extracted,
+    flags: displayFlags,
+    summary,
+    language: result.language,
+  }
   // Prefer the freshly uploaded file; fall back to a stored file's signed URL.
   const previewUrl = fileUrl ?? initialFileUrl
   const isImg = file ? file.type.startsWith('image/') : kindFromName(fileName) === 'img'
@@ -347,8 +502,16 @@ export function InvoiceValidator({
           {/* issues */}
           {orderedFlags.length > 0 ? (
             <div>
-              <div className="font-mono text-[10px] tracking-[0.14em] text-muted-foreground mb-3">
-                {isRtl ? `الملاحظات (${orderedFlags.length})` : `ISSUES (${orderedFlags.length})`}
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <span className="font-mono text-[10px] tracking-[0.14em] text-muted-foreground">
+                  {isRtl ? `الملاحظات (${orderedFlags.length})` : `ISSUES (${orderedFlags.length})`}
+                </span>
+                {edited && (
+                  <span className="inline-flex items-center gap-1 text-[11px] text-primary font-medium">
+                    <RotateCcw size={11} />
+                    {isRtl ? 'أُعيد الفحص بعد التعديل' : 'Re-checked after edits'}
+                  </span>
+                )}
               </div>
               <div className="space-y-2.5">
                 {orderedFlags.map((f, i) => (
@@ -360,12 +523,22 @@ export function InvoiceValidator({
             <p className="text-sm text-primary">{isRtl ? 'لا توجد مشكلات.' : 'No issues found.'}</p>
           )}
 
-          {/* extracted data */}
+          {/* extracted data — editable */}
           <div>
-            <div className="font-mono text-[10px] tracking-[0.14em] text-muted-foreground mb-3">
-              {isRtl ? 'البيانات المستخرجة' : 'EXTRACTED DATA'}
+            <div className="flex items-center gap-1.5 text-muted-foreground mb-2">
+              <Pencil size={11} />
+              <span className="text-[11px]">
+                {isRtl
+                  ? 'صحّح أي حقل قرأه النظام خطأً — تتحدّث الفحوصات فورًا'
+                  : 'Fix any misread field — checks update instantly'}
+              </span>
             </div>
-            <ExtractedGrid data={extracted} language={language} />
+            <EditableGrid
+              draft={draft}
+              language={language}
+              hasQr={hasQr}
+              onChange={handleFieldChange}
+            />
           </div>
         </div>
 
@@ -376,7 +549,7 @@ export function InvoiceValidator({
           </span>
           <div className="flex gap-2 ms-auto">
             <button
-              onClick={() => openReport(result, fileName, language)}
+              onClick={() => openReport(liveResult, fileName, language)}
               className="h-10 px-4 rounded-[10px] border border-border text-sm font-semibold flex items-center gap-1.5 hover:border-primary hover:text-primary transition-colors"
             >
               <Download size={14} />
