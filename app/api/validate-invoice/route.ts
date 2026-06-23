@@ -1,8 +1,9 @@
+import { SchemaType } from '@google/generative-ai'
 import { genAI } from '@/lib/gemini'
 import { buildAnalysisParts } from '@/lib/file-processor'
 import { buildSystemPrompt } from '@/lib/system-prompt'
 import { runZatcaRules, ExtractedInvoice, ValidationFlag } from '@/lib/zatca-rules'
-import { runQrCrossChecks } from '@/lib/zatca-qr'   
+import { runQrCrossChecks } from '@/lib/zatca-qr'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -45,6 +46,54 @@ IMPORTANT extraction rules:
 - Do NOT guess "invoiceType"; only report what the document states.
 
 Return ONLY the JSON — no markdown, no explanation.`
+
+// Response schema for structured output — forces valid, parseable JSON so we no
+// longer depend on regex-scraping a {...} block out of free text.
+const EXTRACTION_SCHEMA = {
+  type: SchemaType.OBJECT,
+  properties: {
+    sellerName: { type: SchemaType.STRING },
+    sellerVat: { type: SchemaType.STRING },
+    buyerName: { type: SchemaType.STRING },
+    buyerVat: { type: SchemaType.STRING },
+    invoiceNumber: { type: SchemaType.STRING },
+    uuid: { type: SchemaType.STRING },
+    invoiceDate: { type: SchemaType.STRING },
+    invoiceType: { type: SchemaType.STRING },
+    subtotal: { type: SchemaType.NUMBER },
+    discountAmount: { type: SchemaType.NUMBER },
+    vatAmount: { type: SchemaType.NUMBER },
+    vatRate: { type: SchemaType.NUMBER },
+    total: { type: SchemaType.NUMBER },
+    hasQrCode: { type: SchemaType.BOOLEAN },
+    qrCode: { type: SchemaType.STRING },
+    lines: {
+      type: SchemaType.ARRAY,
+      items: {
+        type: SchemaType.OBJECT,
+        properties: {
+          description: { type: SchemaType.STRING },
+          quantity: { type: SchemaType.NUMBER },
+          unitPrice: { type: SchemaType.NUMBER },
+          discount: { type: SchemaType.NUMBER },
+          lineTotal: { type: SchemaType.NUMBER },
+          vatAmount: { type: SchemaType.NUMBER },
+          vatRate: { type: SchemaType.NUMBER },
+        },
+      },
+    },
+  },
+} as const
+
+/** Structured output can still return empty strings for absent fields — treat
+ *  those as missing so the rules engine doesn't see "" as a real value. */
+function pruneEmpty(invoice: ExtractedInvoice): ExtractedInvoice {
+  const out = { ...invoice }
+  for (const [k, v] of Object.entries(out)) {
+    if (typeof v === 'string' && v.trim() === '') delete (out as Record<string, unknown>)[k]
+  }
+  return out
+}
 
 const SEMANTIC_PROMPT_AR = `بناءً على الفاتورة المستخرجة والأعلام التي اكتشفها محرك القواعد، قدّم ملاحظات إرشادية (معلوماتية فقط) قد تساعد المستخدم. اقتصر على حقائق امتثال يمكن التحقق منها فقط، مثل:
 - وجود معاملة خاصة معلنة (صفر الضريبة، معفى) وما يترتب عليها
@@ -108,24 +157,34 @@ export async function POST(request: Request) {
       systemInstruction: buildSystemPrompt(language),
     })
 
-    // Step 1 — Extract invoice fields via AI vision pass
+    // Step 1 — Extract invoice fields via AI vision pass. Structured output
+    // (responseSchema) makes the model return schema-valid JSON directly.
     const fileParts = await buildAnalysisParts(file)
     const extractionResult = await model.generateContent({
       contents: [{ role: 'user', parts: [...fileParts, { text: EXTRACTION_PROMPT }] }],
+      generationConfig: {
+        responseMimeType: 'application/json',
+        responseSchema: EXTRACTION_SCHEMA,
+      },
     })
 
     const extractionText = extractionResult.response.text()
-    const jsonMatch = extractionText.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) {
-      return Response.json({ error: 'Could not extract invoice data from document' }, { status: 422 })
-    }
-
     let extracted: ExtractedInvoice
     try {
-      extracted = JSON.parse(jsonMatch[0]) as ExtractedInvoice
+      extracted = JSON.parse(extractionText) as ExtractedInvoice
     } catch {
-      return Response.json({ error: 'Extraction response was not valid JSON' }, { status: 422 })
+      // Fallback for the rare case the model wraps JSON in prose despite the schema.
+      const jsonMatch = extractionText.match(/\{[\s\S]*\}/)
+      if (!jsonMatch) {
+        return Response.json({ error: 'Could not extract invoice data from document' }, { status: 422 })
+      }
+      try {
+        extracted = JSON.parse(jsonMatch[0]) as ExtractedInvoice
+      } catch {
+        return Response.json({ error: 'Extraction response was not valid JSON' }, { status: 422 })
+      }
     }
+    extracted = pruneEmpty(extracted)
 
     // A client-scanned QR is ground truth — trust it over the model's guess so
     // the cross-checks below run against the real payload.
