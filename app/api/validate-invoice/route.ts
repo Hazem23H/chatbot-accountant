@@ -95,6 +95,66 @@ function pruneEmpty(invoice: ExtractedInvoice): ExtractedInvoice {
   return out
 }
 
+/** Parse an extraction response into an invoice, or null if unusable. */
+function parseExtraction(text: string): ExtractedInvoice | null {
+  const tryParse = (s: string): ExtractedInvoice | null => {
+    try {
+      return JSON.parse(s) as ExtractedInvoice
+    } catch {
+      return null
+    }
+  }
+  return tryParse(text) ?? tryParse(text.match(/\{[\s\S]*\}/)?.[0] ?? '')
+}
+
+/** Reject a promise if it doesn't settle within `ms` — used to bail out of a
+ *  stalled model call so the fallback can run inside the function time budget. */
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error('model call timed out')), ms)),
+  ])
+}
+
+type GenModel = ReturnType<typeof genAI.getGenerativeModel>
+type FileParts = Awaited<ReturnType<typeof buildAnalysisParts>>
+
+/**
+ * Extract invoice fields. Tries structured output (responseSchema) first; if the
+ * model rejects the schema, returns no usable text, or stalls, falls back to the
+ * plain-prompt path. A structured-output incompatibility can never take the
+ * endpoint down — at worst it costs one wasted, fast-failing call.
+ */
+async function extractInvoice(model: GenModel, fileParts: FileParts): Promise<ExtractedInvoice | null> {
+  const contents = [{ role: 'user' as const, parts: [...fileParts, { text: EXTRACTION_PROMPT }] }]
+
+  try {
+    const structured = await withTimeout(
+      model.generateContent({
+        contents,
+        generationConfig: {
+          responseMimeType: 'application/json',
+          responseSchema: EXTRACTION_SCHEMA,
+        },
+      }),
+      15000
+    )
+    const parsed = parseExtraction(structured.response.text())
+    if (parsed) return parsed
+  } catch (err) {
+    console.error('[validate-invoice] structured extraction failed; using plain fallback:', err)
+  }
+
+  // Fallback — plain prompt, scrape the JSON out of the response text.
+  try {
+    const plain = await model.generateContent({ contents })
+    return parseExtraction(plain.response.text())
+  } catch (err) {
+    console.error('[validate-invoice] plain extraction failed:', err)
+    return null
+  }
+}
+
 const SEMANTIC_PROMPT_AR = `بناءً على الفاتورة المستخرجة والأعلام التي اكتشفها محرك القواعد، قدّم ملاحظات إرشادية (معلوماتية فقط) قد تساعد المستخدم. اقتصر على حقائق امتثال يمكن التحقق منها فقط، مثل:
 - وجود معاملة خاصة معلنة (صفر الضريبة، معفى) وما يترتب عليها
 - حقل إلزامي يبدو ناقصًا ولم يلتقطه محرك القواعد
@@ -157,34 +217,14 @@ export async function POST(request: Request) {
       systemInstruction: buildSystemPrompt(language),
     })
 
-    // Step 1 — Extract invoice fields via AI vision pass. Structured output
-    // (responseSchema) makes the model return schema-valid JSON directly.
+    // Step 1 — Extract invoice fields via AI vision pass (structured output with
+    // an automatic plain-prompt fallback).
     const fileParts = await buildAnalysisParts(file)
-    const extractionResult = await model.generateContent({
-      contents: [{ role: 'user', parts: [...fileParts, { text: EXTRACTION_PROMPT }] }],
-      generationConfig: {
-        responseMimeType: 'application/json',
-        responseSchema: EXTRACTION_SCHEMA,
-      },
-    })
-
-    const extractionText = extractionResult.response.text()
-    let extracted: ExtractedInvoice
-    try {
-      extracted = JSON.parse(extractionText) as ExtractedInvoice
-    } catch {
-      // Fallback for the rare case the model wraps JSON in prose despite the schema.
-      const jsonMatch = extractionText.match(/\{[\s\S]*\}/)
-      if (!jsonMatch) {
-        return Response.json({ error: 'Could not extract invoice data from document' }, { status: 422 })
-      }
-      try {
-        extracted = JSON.parse(jsonMatch[0]) as ExtractedInvoice
-      } catch {
-        return Response.json({ error: 'Extraction response was not valid JSON' }, { status: 422 })
-      }
+    const rawExtracted = await extractInvoice(model, fileParts)
+    if (!rawExtracted) {
+      return Response.json({ error: 'Could not extract invoice data from document' }, { status: 422 })
     }
-    extracted = pruneEmpty(extracted)
+    const extracted = pruneEmpty(rawExtracted)
 
     // A client-scanned QR is ground truth — trust it over the model's guess so
     // the cross-checks below run against the real payload.
